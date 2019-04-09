@@ -3,8 +3,8 @@
 import math
 import numpy as np
 from keras import initializers
-import theano
-import theano.tensor as T
+# import theano
+# import theano.tensor as T
 import keras
 from keras import backend as K
 import tensorflow as tf

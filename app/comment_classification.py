@@ -8,7 +8,7 @@ from keras.layers import Dense, Dropout, LSTM,Bidirectional
 import tensorflow as tf
 print(tf.__version__)
 from gensim.models import Word2Vec
-from pyvi import ViTokenizer, ViPosTagger
+from pyvi import ViTokenizer,ViPosTagger
 from keras import backend as K
 
 class BaseTextClassifier(object):

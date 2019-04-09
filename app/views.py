@@ -209,7 +209,7 @@ class LoginView(generics.CreateAPIView):
                 # login saves the user’s ID in the session,
                 # using Django’s session framework.
                 login(request, user)
-                profile = Profile.objects.get(id=user.id)
+                profile = Profile.objects.get(email=user.email)
                 serializer = TokenSerializer(data={
                     # using drf jwt utility functions to generate a token
                     "token": jwt_encode_handler(
@@ -238,6 +238,10 @@ class RegisterUsers(generics.CreateAPIView):
             birthday = request.data.get("birthday", "")
             address = request.data.get("address", "")
             email = request.data.get("email", "")
+            rep_id = request.data.get('repId',"")
+            avatar= request.data.get('avatar',"")
+            join_date = request.data.get('joinDate','')
+            id = request.data.get('id',"")
             if not username and not password and not email:
                 return Response(
                     data={
@@ -248,6 +252,8 @@ class RegisterUsers(generics.CreateAPIView):
             new_user = User.objects.create_user(
                 username=username, password=password, email=email
             )
+            new_profile = Profile(user_name=username,email=email,represent_id=rep_id,id=id,avatar = avatar,join_date=join_date)
+            new_profile.save()
             return Response(
                 data=UserSerializer(new_user).data,
                 status=status.HTTP_201_CREATED
@@ -320,7 +326,7 @@ class GetMyHomestayRateView(generics.RetrieveAPIView):
                 return Response(data={'me_rate': me_rate},status=status.HTTP_200_OK)
             else:
                 return Response({}, status=status.HTTP_204_NO_CONTENT)
-        except expression as identifier:
+        except Exception as e:
             return Response({'status': 500, 'message': e}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GetCommentWithPaginationView(generics.RetrieveAPIView):
@@ -364,8 +370,10 @@ class CreateCommentView(generics.CreateAPIView):
             user_id = request.user.id
             text = [content]
             final_label = 0
+            print('__________________: ',text)
             with graph.as_default():
                 final_label = classify_comment(text)
+                print('final: ',final_label)
             new_comment = Comment(homestay_id=homestay_id,user_id=user_id, content=content,sentiment=final_label)
             new_comment.save()
             new_comment_raw = CommentSerializer(new_comment).data
@@ -554,14 +562,17 @@ class GetConformHomestay(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         try:
-            my_userid = request.user.id
-            my_profile= Profile.objects.get(id=my_userid)
+            my_user_email = request.user.email
+            my_profile= Profile.objects.get(email=my_user_email)
+
             limit = self.request.query_params.get('limit', None)
             offset = self.request.query_params.get('offset', None)
             represent_list = self.get_list_represent_id()
             my_represent_id = ProfileSerializer(my_profile).data['represent_id']
+            print(my_represent_id)
             predictions = get_predictions(my_represent_id,represent_list)
             predictions = sorted(predictions,key=lambda x: x[1],reverse=True)
+            print(predictions)
             if((limit is not None) and (offset is not None)):
                 predictions = predictions[int(offset):int(limit) + int(offset)]
             else:
@@ -575,7 +586,7 @@ class GetConformHomestay(generics.RetrieveAPIView):
 
 class UploadPhotoView(generics.ListCreateAPIView):
     queryset = Homestay.objects.filter(is_allowed=True)
-    permission_classes = (permissions.IsAuthenticated,)
+    # permission_classes = (permissions.NOT,)
     def post(self, request, *args, **kwargs):
         try:
             response = upload(request.FILES['img'])
@@ -628,7 +639,8 @@ class CreateHomestayView(generics.ListCreateAPIView):
             amenities =  request.data.get('amenities')
             amenities_around = request.data.get('amenities_around')
             images = request.data.get('images')
-            represent_id = self.get_next_rep_id()
+            # represent_id = self.get_next_rep_id()
+            represent_id = 0
             new_homestay = Homestay(represent_id=represent_id,main_price=main_price,price_detail=detail_price,amenities=amenities,amenities_around=amenities_around,name=name,descriptions=desc,highlight=highlight,images=images,city=city,district=district,host_id=request.user.id)
             new_homestay.save()
             return Response(data=HomestaySerializer(new_homestay).data, status=status.HTTP_200_OK)
@@ -708,14 +720,11 @@ class GetProfileView(generics.ListCreateAPIView):
 
 
 
+# dict_phongngu = [('toida22khach', 0), ('5phongngu', 1), ('7giuong', 2), ('toida6khach', 3), ('2phongngu', 4), ('2giuong', 5), ('toida4khach', 6), ('toida2khach', 12), ('1phongngu', 13), ('1giuong', 14), ('toida3khach', 18), ('toida12khach', 24), ('3phongngu', 25), ('3giuong', 26), ('0phongngu', 28), ('toida10khach', 39), ('4phongngu', 40), ('5giuong', 41), ('toida5khach', 42), ('toida8khach', 63), ('4giuong', 77), ('6giuong', 149), ('toida13khach', 321), ('toida7khach', 357), ('28giuong', 440), ('toida32khach', 483), ('8phongngu', 484), ('8giuong', 485), ('toida16khach', 489), ('toida9khach', 495), ('toida15khach', 510), ('toida20khach', 567), ('7phongngu', 568), ('10giuong', 569), ('toida14khach', 573), ('12giuong', 590), ('toida30khach', 630), ('9phongngu', 631), ('phongngu', 877), ('giuong', 878), ('toida19khach', 936), ('9giuong', 938), ('toida35khach', 1083), ('11giuong', 1085), ('toida25khach', 1125), ('toida24khach', 1371), ('toida1khach', 1653), ('44giuong', 2345), ('toida18khach', 2391), ('6phongngu', 2578), ('16giuong', 2762), ('toida28khach', 2955), ('10phongngu', 2956), ('13giuong', 2957), ('toida40khach', 3153), ('18giuong', 3377), ('toida26khach', 3714), ('20giuong', 4313), ('toida23khach', 4452), ('toida11khach', 4746), ('11phongngu', 4921), ('toida17khach', 4950), ('17giuong', 4952), ('toida50khach', 5391), ('toida103khach', 5775), ('19phongngu', 5776), ('38giuong', 5777), ('30giuong', 5891), ('15giuong', 6254), ('14giuong', 6383), ('24giuong', 7019), ('27giuong', 7022), ('17phongngu', 7336), ('25giuong', 7337), ('toida100khach', 7341), ('20phongngu', 7513), ('19giuong', 8591), ('toida55khach', 8997), ('14phongngu', 10222)]
 
-# dict phong ngu
-# [('toida22khach', 0), ('5phongngu', 1), ('7giuong', 2), ('toida6khach', 3), ('2phongngu', 4), ('2giuong', 5), ('toida4khach', 6), ('toida2khach', 12), ('1phongngu', 13), ('1giuong', 14), ('toida3khach', 18), ('toida12khach', 24), ('3phongngu', 25), ('3giuong', 26), ('0phongngu', 28), ('toida10khach', 39), ('4phongngu', 40), ('5giuong', 41), ('toida5khach', 42), ('toida8khach', 63), ('4giuong', 77), ('6giuong', 149), ('toida13khach', 321), ('toida7khach', 357), ('28giuong', 440), ('toida32khach', 483), ('8phongngu', 484), ('8giuong', 485), ('toida16khach', 489), ('toida9khach', 495), ('toida15khach', 510), ('toida20khach', 567), ('7phongngu', 568), ('10giuong', 569), ('toida14khach', 573), ('12giuong', 590), ('toida30khach', 630), ('9phongngu', 631), ('phongngu', 877), ('giuong', 878), ('toida19khach', 936), ('9giuong', 938), ('toida35khach', 1083), ('11giuong', 1085), ('toida25khach', 1125), ('toida24khach', 1371), ('toida1khach', 1653), ('44giuong', 2345), ('toida18khach', 2391), ('6phongngu', 2578), ('16giuong', 2762), ('toida28khach', 2955), ('10phongngu', 2956), ('13giuong', 2957), ('toida40khach', 3153), ('18giuong', 3377), ('toida26khach', 3714), ('20giuong', 4313), ('toida23khach', 4452), ('toida11khach', 4746), ('11phongngu', 4921), ('toida17khach', 4950), ('17giuong', 4952), ('toida50khach', 5391), ('toida103khach', 5775), ('19phongngu', 5776), ('38giuong', 5777), ('30giuong', 5891), ('15giuong', 6254), ('14giuong', 6383), ('24giuong', 7019), ('27giuong', 7022), ('17phongngu', 7336), ('25giuong', 7337), ('toida100khach', 7341), ('20phongngu', 7513), ('19giuong', 8591), ('toida55khach', 8997), ('14phongngu', 10222)]
+# dict_phongtam = [('5phongtam', 0), ('2phongtam', 1), ('1phongtam', 2), ('3phongtam', 8), ('4phongtam', 45), ('1.5phongtam', 76), ('2.5phongtam', 131), ('8phongtam', 161), ('6phongtam', 191), ('9phongtam', 210), ('phongtam', 292), ('7phongtam', 485), ('10phongtam', 985), ('11phongtam', 1925), ('0phongtam', 2255), ('17phongtam', 2445), ('13phongtam', 2777), ('14phongtam', 3407), ('12phongtam', 3643)]
 
-# dict phong tam
-# [('5phongtam', 0), ('2phongtam', 1), ('1phongtam', 2), ('3phongtam', 8), ('4phongtam', 45), ('1.5phongtam', 76), ('2.5phongtam', 131), ('8phongtam', 161), ('6phongtam', 191), ('9phongtam', 210), ('phongtam', 292), ('7phongtam', 485), ('10phongtam', 985), ('11phongtam', 1925), ('0phongtam', 2255), ('17phongtam', 2445), ('13phongtam', 2777), ('14phongtam', 3407), ('12phongtam', 3643)]
-
-# dict cho gia dinh
+# # dict cho gia dinh
 # dict_chogiadinh = [('phuhopvoitrenho', 0),
 #                    ('dembosung', 1), ('khonghutthuoc', 2)]
 
@@ -803,11 +812,13 @@ class GetProfileView(generics.ListCreateAPIView):
 #     # return 1 - distance.cosine(similarity, [1,1,1,1,1,1,1,1,1,1],[2,4,5,2,2,2,2,2,2,2])
 #     return 1 - distance.cosine(similarity, [1,1,1,1,1,1,1,1,1,1],[2,4,5,2,2,2,2,2,2,2])
 
-# queryset = Homestay.objects.filter(is_allowed=True)
+# queryset = Homestay.objects.filter(is_allowed=0)
 # homestay_data = HomestaySerializer(queryset, many=True).data
 # vectors = []
 # index = 0
 # for homestay in homestay_data:
+#     homestay['district'] = homestay['district'] if homestay['district'] is not None else ''
+#     homestay['city'] = homestay['city'] if homestay['city'] is not None else ''
 #     field_names = homestay['amenities']['data']
 #     main_price = 0
 #     try:
@@ -886,7 +897,8 @@ class GetProfileView(generics.ListCreateAPIView):
 
 # for index, vector in enumerate(vectors, start=0):
 #     arr_score = []
+#     print('hihi')
 #     for indexx,vectorr in enumerate(vectors[index + 1:],start=0):
 #         si_vector = similarity_by_fields(vector[0], vectorr[0])
 #         arr_score.append("(0,"+str(vector[1])+","+str(vectorr[1])+","+str(si_vector)+")")
-#     connection.cursor().execute("INSERT INTO app_homestay_similarity (id,first_homestay_id,second_homestay_id,score) VALUES " + convert_to_text(arr_score)+';')
+#     connection.cursor().execute("INSERT INTO app_homestaysimilarity (id,first_homestay_id,second_homestay_id,score) VALUES " + convert_to_text(arr_score)+';')

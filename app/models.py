@@ -51,6 +51,7 @@ class Homestay(models.Model):
     is_allowed = models.IntegerField(default=0)
     created_at = models.DateTimeField('created_at', auto_now_add=True)
     updated_at = models.DateTimeField('updated_at', auto_now=True)
+
     class Meta:
         get_latest_by = 'represent_id'
 
@@ -82,8 +83,8 @@ class Post(models.Model):
     post_id = models.AutoField(primary_key=True)
     # user_id = models.IntegerField(default=0)
     # homestay_id = models.IntegerField(default=0)
-    user = models.ForeignKey(Profile,on_delete=models.CASCADE)
-    homestay = models.ForeignKey(Homestay,on_delete=models.CASCADE)
+    user = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    homestay = models.ForeignKey(Homestay, on_delete=models.CASCADE)
     content = models.TextField()
     created_at = models.DateTimeField('created_at', auto_now_add=True)
     updated_at = models.DateTimeField('updated_at', auto_now=True)
