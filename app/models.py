@@ -7,6 +7,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.timezone import now
 from django.core import serializers
+from django.forms import ModelForm
 
 
 # Create your models here.
@@ -55,6 +56,10 @@ class Homestay(models.Model):
     class Meta:
         get_latest_by = 'represent_id'
 
+# class HomestayForm(ModelForm):
+#     class Meta:
+#         model = Homestay
+#         fields = ['name', 'title', 'birth_date']
 
 class HomestayRate(models.Model):
     homestay_rate_id = models.AutoField(primary_key=True)

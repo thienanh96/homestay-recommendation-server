@@ -1,15 +1,16 @@
+from pyvi import ViTokenizer, ViPosTagger
+from keras import backend as K
+from gensim.models import Word2Vec
 import numpy as np
 import os
 import keras
 from keras import regularizers
 from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, LSTM,Bidirectional
+from keras.layers import Dense, Dropout, LSTM, Bidirectional
 import tensorflow as tf
 print(tf.__version__)
-from gensim.models import Word2Vec
-from pyvi import ViTokenizer,ViPosTagger
-from keras import backend as K
+
 
 class BaseTextClassifier(object):
     def train(self, X, y):
@@ -81,10 +82,12 @@ class KerasTextClassifier(BaseTextClassifier):
         :return:
         """
         self.model = self.build_model(input_dim=(X.shape[1], X.shape[2]))
-        filepath="models/checkpoint/weights.best.hdf5"
-        checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+        filepath = "models/checkpoint/weights.best.hdf5"
+        checkpoint = ModelCheckpoint(
+            filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
         callbacks_list = [checkpoint]
-        self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=self.n_epochs,validation_split=0.2,shuffle=True,callbacks=callbacks_list)
+        self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=self.n_epochs,
+                       validation_split=0.2, shuffle=True, callbacks=callbacks_list)
         self.model.save_weights(self.model_path)
 
     def predict(self, X):
@@ -149,7 +152,7 @@ class KerasTextClassifier(BaseTextClassifier):
         X = None
         y = None
         for i, data_path in enumerate(path_list):
-            sentences_ = load_method(self,data_path)
+            sentences_ = load_method(self, data_path)
             label_vec = [0.0 for _ in range(0, self.n_class)]
             label_vec[i] = 1.0
             labels_ = [label_vec for _ in range(0, len(sentences_))]
@@ -174,14 +177,15 @@ class KerasTextClassifier(BaseTextClassifier):
         for sent in sentences:
             embed_sent = []
             for word in sent:
-                #lap tung tu trong sent
+                # lap tung tu trong sent
                 if (self.sym_dict is not None) and (word.lower() in self.sym_dict):
                     replace_word = self.sym_dict[word.lower()]
                     embed_sent.append(self.word2vec[replace_word])
                 elif word.lower() in self.word2vec:
                     embed_sent.append(self.word2vec[word.lower()])
                 else:
-                    embed_sent.append(np.zeros(shape=(self.word_dim,), dtype=float))
+                    embed_sent.append(
+                        np.zeros(shape=(self.word_dim,), dtype=float))
             if len(embed_sent) > max_length:
                 embed_sent = embed_sent[:max_length]
             elif len(embed_sent) < max_length:
@@ -208,7 +212,7 @@ class KerasTextClassifier(BaseTextClassifier):
         return tokens_list, max_length
 
     @staticmethod
-    def load_data_from_file(self,file_path):
+    def load_data_from_file(self, file_path):
         """
         Method to load sentences from file
         :param file_path: path to file
@@ -216,11 +220,12 @@ class KerasTextClassifier(BaseTextClassifier):
         """
         with open(file_path, 'r') as fr:
             sentences = fr.readlines()
-            sentences = [sent.strip() for sent in sentences if len(sent.strip()) > 0]
+            sentences = [sent.strip()
+                         for sent in sentences if len(sent.strip()) > 0]
         return sentences
-    
+
     @staticmethod
-    def load_data_from_dir(self,data_path):
+    def load_data_from_dir(self, data_path):
         """
         Load data from directory which contains multiple files
         :param data_path: path to data directory
@@ -232,14 +237,14 @@ class KerasTextClassifier(BaseTextClassifier):
             file_path = os.path.join(data_path, f_name)
             if f_name.startswith('.') or os.path.isdir(file_path):
                 continue
-            batch_sentences = self.load_data_from_file(self,file_path)
+            batch_sentences = self.load_data_from_file(self, file_path)
             if sentences is None:
                 sentences = batch_sentences
             else:
                 sentences += batch_sentences
         return sentences
 
-    def label_result(self,result):
+    def label_result(self, result):
         if result is None:
             return 0
         positive = float(result[0][0])
@@ -248,6 +253,7 @@ class KerasTextClassifier(BaseTextClassifier):
         if(positive >= 0.45 and positive <= 0.55):
             return 0
         return 1
+
 
 class BiDirectionalLSTMClassifier(KerasTextClassifier):
     def build_model(self, input_dim):
@@ -258,7 +264,8 @@ class BiDirectionalLSTMClassifier(KerasTextClassifier):
         """
         model = Sequential()
 
-        model.add(Bidirectional(LSTM(32, return_sequences=True), input_shape=input_dim))
+        model.add(Bidirectional(
+            LSTM(32, return_sequences=True), input_shape=input_dim))
         model.add(Dropout(0.1))
         model.add(Bidirectional(LSTM(16)))
         model.add(Dense(self.n_class, activation="softmax"))
@@ -268,21 +275,17 @@ class BiDirectionalLSTMClassifier(KerasTextClassifier):
                       metrics=['accuracy'])
         return model
 
- 
 
 word2vec_model = Word2Vec.load('app/model_dl/word2vec-new.model')
 tokenizer = ViTokenizer
 sym_dict = load_synonym_dict('app/model_dl/synonym.txt')
-keras_text_classifier = BiDirectionalLSTMClassifier(tokenizer=tokenizer, word2vec=word2vec_model.wv,
-                                                    model_path='app/model_dl/sentiment_model.h5',
-                                                    max_length=40, n_epochs=50,
-                                                    sym_dict=sym_dict)
+keras_text_classifier = BiDirectionalLSTMClassifier(
+    tokenizer=tokenizer, word2vec=word2vec_model.wv, model_path='app/model_dl/sentiment_model.h5', max_length=40, n_epochs=50, sym_dict=sym_dict)
 
 keras_text_classifier.load_model()
 print('dhs')
 graph = tf.get_default_graph()
 
+
 def classify_comment(comment):
     return keras_text_classifier.classify(comment)
-
-

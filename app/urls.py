@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import GetHomestayView, GetHomestayWithPaginationView
-from .views import SearchHomestayView, LoginView, RegisterUsers,RateHomestayView,GetCommentWithPaginationView,CreateCommentView,UpdateHomestaySimilarityView,CreateHomestaySimilarityView,GetHomestaySimilarityView,GetPostsView,GetMyHomestayRateView,CreatePostView,GetConformHomestay,UploadPhotoView,CreateHomestayView,UpdateProfileView,GetProfileView
+from .views import SearchHomestayView, LoginView, RegisterUsers,RateHomestayView,GetCommentWithPaginationView,CreateCommentView,UpdateHomestaySimilarityView,CreateHomestaySimilarityView,GetHomestaySimilarityView,GetPostsView,GetMyHomestayRateView,CreatePostView,GetConformHomestay,UploadPhotoView,CreateHomestayView,UpdateProfileView,GetProfileView,UpdateHomestayView
 
 urlpatterns = [
     path('homestays/<int:homestay_id>/',
@@ -22,5 +22,6 @@ urlpatterns = [
     path('homestay/upload-image',UploadPhotoView.as_view(),name='upload-image-homestay'),
     path('homestay/create',CreateHomestayView.as_view(),name='create-homestay'),
     path('profile/update',UpdateProfileView.as_view(),name='update-profile'),
-    path('profile/get',GetProfileView.as_view(),name='get-profile')
+    path('profile/get',GetProfileView.as_view(),name='get-profile'),
+    path('homestay/update/<int:homestay_id>',UpdateHomestayView.as_view(),name='update-homestay')
 ]

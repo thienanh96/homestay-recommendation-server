@@ -20,6 +20,7 @@ import cloudinary
 from cloudinary.uploader import upload
 from cloudinary.utils import cloudinary_url
 from .recommendation import get_predictions
+from .validation import Validation
 import time;
 from .utils import embed_to_vector, get_score, convert_to_text
 import textdistance
@@ -279,10 +280,11 @@ class RateHomestayView(generics.CreateAPIView):
                 cursor.callproc('rate_homestay', [
                                 int(request.user.id), int(homestay_id), int(type_rate)])
                 action_type = None
-                if cursor.fetchall()[0][0] > -1:
+                if cursor.fetchall()[0][0] is not None:
                     action_type = 'remove'
                 else:
                     action_type = 'add'
+                print('acyion: ',action_type)
                 return Response(
                     data={'type_rate': type_rate, 'homestay_id': homestay_id,
                           'user_id': request.user.id, 'status': 200, 'action_type': action_type},
@@ -639,8 +641,7 @@ class CreateHomestayView(generics.ListCreateAPIView):
             amenities =  request.data.get('amenities')
             amenities_around = request.data.get('amenities_around')
             images = request.data.get('images')
-            # represent_id = self.get_next_rep_id()
-            represent_id = 0
+            represent_id = self.get_next_rep_id()
             new_homestay = Homestay(represent_id=represent_id,main_price=main_price,price_detail=detail_price,amenities=amenities,amenities_around=amenities_around,name=name,descriptions=desc,highlight=highlight,images=images,city=city,district=district,host_id=request.user.id)
             new_homestay.save()
             return Response(data=HomestaySerializer(new_homestay).data, status=status.HTTP_200_OK)
@@ -697,7 +698,42 @@ class GetProfileView(generics.ListCreateAPIView):
             print(e)
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
+class UpdateHomestayView(generics.UpdateAPIView):
+    queryset = Homestay.objects.all()
+    permission_classes = (permissions.IsAuthenticated,)
+    def put(self, request, homestay_id):
+        try:
+            # data = Validation().validate_post(request.data)
+            # print(data.items())
+            desc = request.data.get('descriptions')
+            highlight = request.data.get('highlight')
+            city =  request.data.get('city')
+            district =  request.data.get('district')
+            name =  request.data.get('name')
+            main_price =  request.data.get('main_price')
+            price_detail =  request.data.get('price_detail')
+            amenities =  request.data.get('amenities')
+            amenities_around = request.data.get('amenities_around')
+            images = request.data.get('images')
+            homestay = Homestay.objects.get(homestay_id=homestay_id)
+            if(homestay):
+                homestay.name = name if name is not None else homestay.name
+                homestay.descriptions = desc if desc is not None else homestay.descriptions
+                homestay.highlight = highlight if highlight is not None else homestay.highlight
+                homestay.city = city if city is not None else homestay.city
+                homestay.district = district if district is not None else homestay.district
+                homestay.main_price = main_price if main_price is not None else homestay.main_price
+                homestay.price_detail = price_detail if price_detail is not None else homestay.price_detail
+                homestay.amenities = amenities if amenities is not None else homestay.amenities
+                homestay.amenities_around = amenities_around if amenities_around is not None else homestay.amenities_around
+                homestay.images = images if images is not None else homestay.images
+                update_result = homestay.save()
+                return Response(data=HomestaySerializer(homestay).data, status=status.HTTP_200_OK)
+            else:
+                return Response(data={},status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            print(e)
+            return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
