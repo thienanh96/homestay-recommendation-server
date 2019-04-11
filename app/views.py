@@ -149,6 +149,7 @@ class SearchHomestayView(generics.ListCreateAPIView):
 
     def get(self, request):
         try:
+            host_id = self.request.query_params.get('host_id',None)
             name = self.request.query_params.get('name', None)
             ids = self.request.query_params.get('ids', None)
             offset = self.request.query_params.get('offset', None)
@@ -162,9 +163,10 @@ class SearchHomestayView(generics.ListCreateAPIView):
                 main_query.add(Q(name__icontains=name), Q.AND)
             elif(ids is not None):
                 ids = ids.split(',')
-                print('ids params: ', ids)
                 for ind in ids:
                     main_query.add(Q(homestay_id=ind), Q.AND)
+            if(host_id is not None):
+                main_query.add(Q(host_id=host_id),Q.AND)
             else:
                 if(city is not None):
                     main_query.add(Q(city__icontains=city), Q.AND)
@@ -174,7 +176,6 @@ class SearchHomestayView(generics.ListCreateAPIView):
                     end_price = float(price_range[1])
                     main_query.add(Q(main_price__gte=start_price), Q.AND)
                     main_query.add(Q(main_price__lte=end_price), Q.AND)
-            print('final query: ', main_query)
             queryset = self.search_homestay(main_query, order_by)
             response_data = None
             total = HomestaySerializer(queryset, many=True).data
@@ -698,6 +699,23 @@ class GetProfileView(generics.ListCreateAPIView):
             print(e)
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class GetListProfileView(generics.ListCreateAPIView):
+    queryset = Profile.objects.all()
+    # permission_classes = (permissions.IsAuthenticated,)
+
+    def get_list_profile_queryset(self, limit, offset):
+        return self.get_queryset().order_by('created_at')[int(offset):int(offset)+int(limit)]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            limit = self.request.query_params.get('limit', 8)
+            offset = self.request.query_params.get('offset', 0)
+            list_profiles = self.get_list_profile_queryset(limit,offset)
+            return Response(data={'dt': ProfileSerializer(list_profiles,many=True).data, 'total': len(ProfileSerializer(list_profiles,many=True).data)}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class UpdateHomestayView(generics.UpdateAPIView):
     queryset = Homestay.objects.all()
     permission_classes = (permissions.IsAuthenticated,)
@@ -735,7 +753,21 @@ class UpdateHomestayView(generics.UpdateAPIView):
             print(e)
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class DeletePostView(generics.DestroyAPIView):
+    queryset = Post.objects.all()
+    permission_classes = (permissions.IsAuthenticated,)
 
+    def delete(self,request,post_id):
+        try:
+            my_id = request.user.id
+            post = Post.objects.get(post_id=post_id)
+            if post.user_id != int(my_id):
+                return Response(data={},status=status.HTTP_401_UNAUTHORIZED)  
+            post.delete()
+            return Response(data=PostSerializer(post).data, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
