@@ -61,8 +61,23 @@ class GetHomestayView(generics.RetrieveAPIView):
             return current_homestayrate
         except HomestayRate.DoesNotExist:
             return None
+    def authorize_user(self,type_get):
+        user = self.request.user
+        if type_get == 'admin':
+            if user is None:
+                return False
+            if user.email != 'supportcustomer1554737792398@gmail.com':
+                return False
+            return True
+        else:
+            return True
+
 
     def get(self, request, homestay_id):
+        type_get = self.request.query_params.get('type-get', None)
+        authorize = self.authorize_user(type_get)
+        if authorize == False:
+            return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
         queryset = self.get_queryset()
         homestay_obj = queryset.get(homestay_id=homestay_id)
         serializer_class = self.get_serializer_class()
@@ -180,7 +195,6 @@ class SearchHomestayView(generics.ListCreateAPIView):
             response_data = None
             total = HomestaySerializer(queryset, many=True).data
             if(limit is not None and offset is not None):
-                print(offset,limit)
                 response_data = total[int(offset):int(offset) + int(limit)]
             else:
                 response_data = total[0:9]
@@ -517,6 +531,10 @@ class GetPostsView(generics.RetrieveAPIView):
                 posts = self.queryset.order_by('-count_like')
             elif (filter_get == 'by-me') and (request.user.id is not None):
                 posts = Post.objects.filter(user_id=request.user.id)
+            else:
+                print('postsssss: ',filter_get)
+                posts = Post.objects.filter(user_id=int(filter_get))
+                print('postQQ: ',posts)
             posts_without_slice = posts
             if((limit is not None) and (offset is not None)):
                 posts = posts[int(offset):int(limit) + int(offset)]
@@ -701,6 +719,7 @@ class GetProfileView(generics.ListCreateAPIView):
 
 class GetListProfileView(generics.ListCreateAPIView):
     queryset = Profile.objects.all()
+    count = Profile.objects.count()
     # permission_classes = (permissions.IsAuthenticated,)
 
     def get_list_profile_queryset(self, limit, offset):
@@ -711,10 +730,35 @@ class GetListProfileView(generics.ListCreateAPIView):
             limit = self.request.query_params.get('limit', 8)
             offset = self.request.query_params.get('offset', 0)
             list_profiles = self.get_list_profile_queryset(limit,offset)
-            return Response(data={'dt': ProfileSerializer(list_profiles,many=True).data, 'total': len(ProfileSerializer(list_profiles,many=True).data)}, status=status.HTTP_200_OK)
+            return Response(data={'dt': ProfileSerializer(list_profiles,many=True).data, 'total': self.count}, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class DeleteProfileView(generics.DestroyAPIView):
+    queryset = Profile.objects.all()
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self,request,profile_id):
+        try:
+            my_profile = request.user
+            if(my_profile is not None):
+                my_email = my_profile.email
+                if my_email == 'supportcustomer1554737792398@gmail.com':
+                    profile = Profile.objects.get(id=profile_id)
+                    if(profile):
+                        profile.delete()
+                    auth_profile = User.objects.get(id=profile_id)
+                    if(auth_profile):
+                        auth_profile.delete()
+                    return Response(data={},status=status.HTTP_200_OK)
+                else:
+                    return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
+        except expression as identifier:
+            return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class UpdateHomestayView(generics.UpdateAPIView):
     queryset = Homestay.objects.all()
@@ -769,7 +813,44 @@ class DeletePostView(generics.DestroyAPIView):
             print(e)
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class GetNotAllowedHomestays(generics.RetrieveAPIView):
+    queryset = Homestay.objects.filter(is_allowed=0)
+    permission_classes = (permissions.IsAuthenticated,)
+    def get(self,request):
+        try:
+            my_email = request.user.email
+            if(my_email != 'supportcustomer1554737792398@gmail.com'):
+                return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
+            homestays = self.get_queryset()
+            homestays = HomestaySerializer(homestays,many=True).data
+            return Response(data={'data': homestays,'total': len(homestays)},status=status.HTTP_200_OK)
+        except expression as e:
+            return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class ApproveHomestayView(generics.UpdateAPIView):
+    queryset = Homestay.objects.all()
+    serializer_class = HomestaySimilaritySerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def put(self, request, homestay_id):
+        try:
+            my_email = request.user.email
+            if(my_email != 'supportcustomer1554737792398@gmail.com'):
+                return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
+            homestay = Homestay.objects.get(homestay_id=homestay_id)
+            if homestay is not None:
+                homestay.is_allowed = 1
+                homestay.save()
+                return Response(data={}, status=status.HTTP_200_OK)
+            else:
+                return Response(data={}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            print(e)
+            return Response({'msg': 'fail'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class GetDetailHomestayAdminView(GetHomestayView):
+    queryset = Homestay.objects.all()
+    permission_classes = (permissions.IsAuthenticated,)
 
 
 
