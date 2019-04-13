@@ -63,17 +63,17 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     # Embedding layer
     MF_Embedding_User = Embedding(input_dim=num_users, output_dim=mf_dim, name='mf_embedding_user',
                                   embeddings_initializer=initializers.Zeros(), embeddings_regularizer=l2(reg_mf), input_length=1)
-    MF_Embedding_User.trainable = False
+    MF_Embedding_User.trainable = True
     MF_Embedding_Item = Embedding(input_dim=num_items, output_dim=mf_dim, name='mf_embedding_item',
                                 embeddings_initializer=initializers.Zeros(),embeddings_regularizer=l2(reg_mf), input_length=1)
-    MF_Embedding_Item.trainable = False
+    MF_Embedding_Item.trainable = True
 
     MLP_Embedding_User = Embedding(input_dim=num_users, output_dim=int(layers[0]/2), name="mlp_embedding_user",
                                 embeddings_initializer=initializers.Zeros(),embeddings_regularizer=l2(reg_layers[0]), input_length=1)
-    MLP_Embedding_User.trainable = False
+    MLP_Embedding_User.trainable = True
     MLP_Embedding_Item = Embedding(input_dim=num_items, output_dim=int(layers[0]/2), name='mlp_embedding_item',
                                 embeddings_initializer=initializers.Zeros(),embeddings_regularizer=l2(reg_layers[0]), input_length=1)
-    MLP_Embedding_Item.trainable = False
+    MLP_Embedding_Item.trainable = True
     # MF part
     mf_user_latent_layer = Flatten()
     mf_user_latent_layer.trainable = False
@@ -123,16 +123,25 @@ def create_data_input(user_id, represent_list):
 
 
 def get_predictions(user_id, represent_list):
-    tf.reset_default_graph()
-    K.clear_session()
+    # tf.reset_default_graph()
+    # K.clear_session()
 
-    model = load_model(8, [64, 32, 16, 8], [0, 0, 0, 0], 0)
-    print('ok: ')
-    model.compile(optimizer=Adam(lr=0.001), loss='binary_crossentropy')
+    # model = load_model(8, [64, 32, 16, 8], [0, 0, 0, 0], 0)
+    # model.compile(optimizer=Adam(lr=0.001), loss='binary_crossentropy')
     input_data = create_data_input(user_id, represent_list)
     prediction = model.predict(input_data, batch_size=1, verbose=0)
     return get_result(prediction)
 
+def train_model(users,rooms,labels):
+    y = list(map(lambda label: sigmoid(int(label)),labels))
+    print(y)
+    model.train_on_batch([np.array(users),np.array(rooms)], np.array(y), sample_weight=None, class_weight=None)
+    model.save_weights('app/model_dl/ml-1m_NeuMF_8_[64,32,16,8]_1553786394.h5', overwrite=True)
+
+
+model = load_model(8, [64, 32, 16, 8], [0, 0, 0, 0], 0)
+model.compile(optimizer=Adam(lr=0.001), loss='binary_crossentropy')
+graph_recommendation = tf.get_default_graph()
 
 # get_predictions(int(10002), [int(10017), int(10018)])
 

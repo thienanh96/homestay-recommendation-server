@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import Profile, Homestay, HomestayRate, Post, PostLikeRef, Comment,HomestaySimilarity
+from .models import Profile, Homestay, HomestayRate, Post, PostLikeRef, Comment,HomestaySimilarity,UserInteraction
 
 
 # class UserSerializer(serializers.HyperlinkedModelSerializer):
@@ -70,3 +70,9 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("username", "email")
+
+
+class UserInteractionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserInteraction
+        fields = ('__all__')

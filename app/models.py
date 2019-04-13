@@ -29,6 +29,8 @@ class Profile(models.Model):
     own_homestays = models.TextField(default=None, null=True)
     avatar = models.TextField(default='')
     join_date = models.CharField(max_length=200)
+    class Meta:
+        get_latest_by = 'represent_id'
 
 
 class Homestay(models.Model):
@@ -108,3 +110,11 @@ class HomestaySimilarity(models.Model):
     first_homestay_id = models.IntegerField(default=0)
     second_homestay_id = models.IntegerField(default=0)
     score = models.FloatField(default=0)
+
+class UserInteraction(models.Model):
+    user_id = models.IntegerField(default=0)
+    homestay_id = models.IntegerField(default=0)
+    weight = models.FloatField(default=1)
+    status = models.IntegerField(default=0)
+    created_at = models.DateTimeField('created_at', auto_now_add=True)
+    updated_at = models.DateTimeField('updated_at', auto_now=True)

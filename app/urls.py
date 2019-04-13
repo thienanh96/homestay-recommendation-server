@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import GetHomestayView, GetHomestayWithPaginationView
-from .views import SearchHomestayView, LoginView, RegisterUsers,RateHomestayView,GetCommentWithPaginationView,CreateCommentView,UpdateHomestaySimilarityView,CreateHomestaySimilarityView,GetHomestaySimilarityView,GetPostsView,GetMyHomestayRateView,CreatePostView,GetConformHomestay,UploadPhotoView,CreateHomestayView,UpdateProfileView,GetProfileView,UpdateHomestayView,DeletePostView,GetListProfileView,DeleteProfileView,GetNotAllowedHomestays,ApproveHomestayView,GetDetailHomestayAdminView
+from .views import SearchHomestayView, LoginView, RegisterUsers,RateHomestayView,GetCommentWithPaginationView,CreateCommentView,UpdateHomestaySimilarityView,CreateHomestaySimilarityView,GetHomestaySimilarityView,GetPostsView,GetMyHomestayRateView,CreatePostView,GetConformHomestay,UploadPhotoView,CreateHomestayView,UpdateProfileView,GetProfileView,UpdateHomestayView,DeletePostView,GetListProfileView,DeleteProfileView,GetNotAllowedHomestays,ApproveHomestayView,GetDetailHomestayAdminView,RatePostView
 
 urlpatterns = [
     path('homestays/<int:homestay_id>/',
@@ -29,5 +29,6 @@ urlpatterns = [
     path('profile/delete/<int:profile_id>',DeleteProfileView.as_view(),name='delete-profile'),
     path('admin/homestays/get_not_allowed',GetNotAllowedHomestays.as_view(),name='admin-get-homestays-notallowed'),
     path('admin/homestay/approve/<int:homestay_id>',ApproveHomestayView.as_view(),name='admin-approve-homestays'),
-    path('admin/homestay/get/<int:homestay_id>',GetDetailHomestayAdminView.as_view(),name='admin-get-homestay')
+    path('admin/homestay/get/<int:homestay_id>',GetDetailHomestayAdminView.as_view(),name='admin-get-homestay'),
+    path('post/rate',RatePostView.as_view(),name='rate-post')
 ]

@@ -1,4 +1,4 @@
 tệ,nhảm,dở,thất_vọng
-xuất_sắc,hay,tốt,hay_tuyệt
+tốt,hay,xuất_sắc,hay_tuyệt,chấp_nhận_được,ổn
 chán,nhạt,buồn_ngủ
 không,chả,

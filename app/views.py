@@ -1,12 +1,15 @@
 import ast
+import schedule
+import _thread
+import re
 from django.shortcuts import render
 from rest_framework import generics
 from rest_framework import permissions, authentication, pagination
 from rest_framework.response import Response
 from rest_framework.views import status
 from rest_framework_jwt.settings import api_settings
-from .serializers import ProfileSerializer, HomestayRateSerializer, HomestaySerializer, TokenSerializer, UserSerializer, CommentSerializer, HomestaySimilaritySerializer,PostSerializer,PostLikeRefSerializer
-from .models import Homestay, Profile, HomestayRate, Comment, HomestaySimilarity,PostLikeRef,Post
+from .serializers import ProfileSerializer, HomestayRateSerializer, HomestaySerializer, TokenSerializer, UserSerializer, CommentSerializer, HomestaySimilaritySerializer,PostSerializer,PostLikeRefSerializer,UserInteractionSerializer
+from .models import Homestay, Profile, HomestayRate, Comment, HomestaySimilarity,PostLikeRef,Post,UserInteraction
 from .custom_query import search_homestay
 from django.db.models import Q
 from django.db import connection
@@ -19,16 +22,17 @@ from unidecode import unidecode
 import cloudinary
 from cloudinary.uploader import upload
 from cloudinary.utils import cloudinary_url
-from .recommendation import get_predictions
+from .recommendation import get_predictions,graph_recommendation,train_model
 from .validation import Validation
 import time;
+import threading
 from .utils import embed_to_vector, get_score, convert_to_text
 import textdistance
 
 # Get the JWT settings
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
 jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
-
+COUNT_USER_INTERACTION = 0
 #Config Cloundinary
 cloudinary.config( 
   cloud_name = "homestayhub", 
@@ -37,6 +41,50 @@ cloudinary.config(
 )
 # labels = keras_text_classifier.classify('hihi')
 # print(labels)
+
+def train_schedule():
+    try:
+        user_interactions = UserInteraction.objects.filter(status=0)
+        user_interactions = UserInteractionSerializer(user_interactions,many=True).data
+        count = len(user_interactions)
+        if count >= COUNT_USER_INTERACTION:
+            labels = []
+            users = []
+            rooms = []
+            for ui in user_interactions:
+                user_id = int(ui['user_id'])
+                weight = float(ui['weight'])
+                homestay_id = int(ui['homestay_id'])
+                if(weight > 0):
+                    users.append(user_id)
+                    labels.append(weight)
+                    rooms.append(homestay_id)
+            
+            with graph_recommendation.as_default():
+                if(len(users) > 0):
+                    train_model(users,rooms,labels)
+                    UserInteraction.objects.all().update(status=1)       
+    except Exception as e:
+        print(e)
+
+def listen_for_timechange():
+    starttime=time.time()
+    while True:
+        train_schedule()
+        time.sleep(60)
+
+# starttime=time.time()
+# while True:
+#   print('stick')
+#   time.sleep(20)
+
+t4 = threading.Thread(target = listen_for_timechange, args=())
+t4.start()
+
+# schedule.every(1).minutes.do(train_schedule)
+# while True:
+#     schedule.run_pending()
+#     time.sleep(1) 
 
 class GetHomestayView(generics.RetrieveAPIView):
     queryset = Homestay.objects.filter(is_allowed=1)
@@ -71,6 +119,22 @@ class GetHomestayView(generics.RetrieveAPIView):
             return True
         else:
             return True
+    def update_user_interaction(self,homestay_id):
+        try:
+            me = self.request.user
+            if me is not None:
+                profile = Profile.objects.get(id=me.id)
+                if profile.represent_id is not None:
+                    try:
+                        ui = UserInteraction.objects.get(user_id=profile.represent_id,homestay_id=homestay_id)
+                        ui.weight = ui.weight + 1
+                        ui.status = 0
+                        ui.save()
+                    except UserInteraction.DoesNotExist:
+                        new_user_interaction = UserInteraction(user_id=profile.represent_id,homestay_id=homestay_id,weight=1)
+                        new_user_interaction.save()
+        except Profile.DoesNotExist:
+            return None
 
 
     def get(self, request, homestay_id):
@@ -100,7 +164,7 @@ class GetHomestayView(generics.RetrieveAPIView):
                 homestay_with_hostinfo['me_rate'] = 'like'
             if homestay_rate_data['isType'] == 2:
                 homestay_with_hostinfo['me_rate'] = 'dislike'
-
+        self.update_user_interaction(homestay_id)
         return Response(homestay_with_hostinfo, 200)
 
 
@@ -248,16 +312,17 @@ class RegisterUsers(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         try:
-            username = request.data.get("username", "")
+            username = request.data.get("fullname", "Ẩn danh")
+            print('username: ',username)
             password = request.data.get("password", "")
-            gender = request.data.get("gender", "")
-            birthday = request.data.get("birthday", "")
-            address = request.data.get("address", "")
+            gender = request.data.get("gender", None)
+            birthday = request.data.get("birthday", None)
+            address = request.data.get("address", None)
             email = request.data.get("email", "")
-            rep_id = request.data.get('repId',"")
             avatar= request.data.get('avatar',"")
             join_date = request.data.get('joinDate','')
-            id = request.data.get('id',"")
+            last = Profile.objects.latest()
+            rep_id = int(ProfileSerializer(last).data['represent_id'] + 1)
             if not username and not password and not email:
                 return Response(
                     data={
@@ -268,7 +333,7 @@ class RegisterUsers(generics.CreateAPIView):
             new_user = User.objects.create_user(
                 username=username, password=password, email=email
             )
-            new_profile = Profile(user_name=username,email=email,represent_id=rep_id,id=id,avatar = avatar,join_date=join_date)
+            new_profile = Profile(user_name=username,email=email,represent_id=rep_id,avatar = avatar,join_date=join_date)
             new_profile.save()
             return Response(
                 data=UserSerializer(new_user).data,
@@ -276,7 +341,7 @@ class RegisterUsers(generics.CreateAPIView):
             )
         except Exception as e:
             print('Loi', e)
-            return Response({'status': 500, 'message': 'Something went wrong'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'fullname': 'Tên đăng nhập đã tồn tại'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class RateHomestayView(generics.CreateAPIView):
@@ -285,12 +350,38 @@ class RateHomestayView(generics.CreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     # authentication_classes = (authentication.,)
 
+    def update_user_interaction(self,homestay_id,type_rate,action_type):
+        try:
+            me = self.request.user
+            if me is not None:
+                profile = Profile.objects.get(id=me.id)
+                if profile.represent_id is not None:
+                    if (int(type_rate) == 1 and action_type == 'add') or (int(type_rate) == 2 and action_type == 'remove'):
+                        try:
+                            ui = UserInteraction.objects.get(user_id=profile.represent_id,homestay_id=homestay_id)
+                            ui.weight = ui.weight + 3
+                            ui.status=0
+                            ui.save()
+                        except UserInteraction.DoesNotExist:
+                            new_user_interaction = UserInteraction(user_id=profile.represent_id,homestay_id=homestay_id,weight=3)
+                            new_user_interaction.save()
+                    elif (int(type_rate) == 1 and action_type == 'remove') or (int(type_rate) == 2 and action_type == 'add'):
+                        try:
+                            ui = UserInteraction.objects.get(user_id=profile.represent_id,homestay_id=homestay_id)
+                            ui.weight = ui.weight - 3 if ui.weight >= 3 else 0 
+                            ui.status=0
+                            ui.save()
+                        except UserInteraction.DoesNotExist:
+                            new_user_interaction = UserInteraction(user_id=profile.represent_id,homestay_id=homestay_id,weight=0)
+                            new_user_interaction.save()
+        except Profile.DoesNotExist:
+            return None
+    
     def post(self, request, *args, **kwargs):
         try:
             homestay_id = request.data.get("homestay_id", "")
             type_rate = request.data.get("type_rate", "")
             cursor = connection.cursor()
-            print('called: ', type_rate)
             try:
                 cursor.callproc('rate_homestay', [
                                 int(request.user.id), int(homestay_id), int(type_rate)])
@@ -300,6 +391,7 @@ class RateHomestayView(generics.CreateAPIView):
                 else:
                     action_type = 'add'
                 print('acyion: ',action_type)
+                self.update_user_interaction(homestay_id,type_rate,action_type)
                 return Response(
                     data={'type_rate': type_rate, 'homestay_id': homestay_id,
                           'user_id': request.user.id, 'status': 200, 'action_type': action_type},
@@ -380,17 +472,58 @@ class CreateCommentView(generics.CreateAPIView):
     serializer_class = CommentSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
+    def update_user_interaction(self,homestay_id,comment_label):
+        try:
+            me = self.request.user
+            if me is not None:
+                profile = Profile.objects.get(id=me.id)
+                if profile.represent_id is not None:
+                    if comment_label == 0:
+                        try:
+                            ui = UserInteraction.objects.get(user_id=profile.represent_id,homestay_id=homestay_id)
+                            ui.weight = ui.weight + 1.5
+                            ui.status=0
+                            ui.save()
+                        except UserInteraction.DoesNotExist:
+                            new_user_interaction = UserInteraction(user_id=profile.represent_id,homestay_id=homestay_id,weight=1.5)
+                            new_user_interaction.save()
+                    elif comment_label == 1:
+                        try:
+                            ui = UserInteraction.objects.get(user_id=profile.represent_id,homestay_id=homestay_id)
+                            ui.weight = ui.weight + 3
+                            ui.status=0
+                            ui.save()
+                        except UserInteraction.DoesNotExist:
+                            new_user_interaction = UserInteraction(user_id=profile.represent_id,homestay_id=homestay_id,weight=3)
+                            new_user_interaction.save()
+                    elif comment_label == 2:
+                        try:
+                            ui = UserInteraction.objects.get(user_id=profile.represent_id,homestay_id=homestay_id)
+                            ui.weight = ui.weight - 2 if ui.weight >= 2 else 0 
+                            ui.status=0
+                            ui.save()
+                        except UserInteraction.DoesNotExist:
+                            new_user_interaction = UserInteraction(user_id=profile.represent_id,homestay_id=homestay_id,weight=0)
+                            new_user_interaction.save()
+        except Profile.DoesNotExist:
+            return None
+
+
     def post(self, request, *args, **kwargs):
         try:
             homestay_id = request.data.get("homestay_id", None)
-            content = request.data.get("content", None)
+            content = request.data.get("content", '')
             user_id = request.user.id
-            text = [content]
+            text_ = []
+            text = re.split('tuy|nhưng',content)
+            for txt in text:
+                txt = txt.split('.')
+                for t in txt:
+                    text_.append(t)
             final_label = 0
-            print('__________________: ',text)
             with graph.as_default():
-                final_label = classify_comment(text)
-                print('final: ',final_label)
+                final_label = classify_comment(text_)
+            # self.update_user_interaction(homestay_id,int(final_label))
             new_comment = Comment(homestay_id=homestay_id,user_id=user_id, content=content,sentiment=final_label)
             new_comment.save()
             new_comment_raw = CommentSerializer(new_comment).data
@@ -518,6 +651,29 @@ class GetPostsView(generics.RetrieveAPIView):
     queryset = Post.objects.all()
     count = Post.objects.count()
     # authentication_classes = (authentication.BasicAuthentication,)
+
+    def check_me_like(self,posts):
+        new_posts = []
+        me = self.request.user
+        for post in posts:
+            try:
+                if me is not None:
+                    post_like_ref = PostLikeRef.objects.get(post_id=post['post_id'],user_id=me.id)
+                    new_posts.append({
+                        'post': post,
+                        'me_like': 1
+                    })
+                else:
+                    new_posts.append({
+                        'post': post,
+                        'me_like': 0
+                    })
+            except PostLikeRef.DoesNotExist:
+                new_posts.append({
+                    'post': post,
+                    'me_like': 0
+                })
+        return new_posts
     
     def get(self, request, *args, **kwargs):
         try:
@@ -532,15 +688,15 @@ class GetPostsView(generics.RetrieveAPIView):
             elif (filter_get == 'by-me') and (request.user.id is not None):
                 posts = Post.objects.filter(user_id=request.user.id)
             else:
-                print('postsssss: ',filter_get)
                 posts = Post.objects.filter(user_id=int(filter_get))
-                print('postQQ: ',posts)
             posts_without_slice = posts
             if((limit is not None) and (offset is not None)):
                 posts = posts[int(offset):int(limit) + int(offset)]
             else:
                 posts = posts[0:3]
-            return Response(data={'data': PostSerializer(posts,many=True).data,'total': len(posts_without_slice)},status=status.HTTP_200_OK)            
+            posts = PostSerializer(posts,many=True).data
+            posts = self.check_me_like(posts)
+            return Response(data={'data': posts,'total': len(posts_without_slice)},status=status.HTTP_200_OK)            
         except Exception as e:
             print(e)
             return Response({'msg': 'fail'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -549,7 +705,25 @@ class GetPostsView(generics.RetrieveAPIView):
 class CreatePostView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
     permission_classes = (permissions.IsAuthenticated,)
-    
+
+    def update_user_interaction(self,homestay_id):
+        try:
+            me = self.request.user
+            if me is not None:
+                profile = Profile.objects.get(id=me.id)
+                if profile.represent_id is not None:
+                    try:
+                        ui = UserInteraction.objects.get(user_id=profile.represent_id,homestay_id=homestay_id)
+                        ui.weight = ui.weight + 2.5
+                        ui.status=0
+                        ui.save()
+                    except UserInteraction.DoesNotExist:
+                        new_user_interaction = UserInteraction(user_id=profile.represent_id,homestay_id=homestay_id,weight=2.5)
+                        new_user_interaction.save()
+        except Profile.DoesNotExist:
+            return None
+
+
     def post(self, request, *args, **kwargs):
         try:
             homestay_id = request.data.get("homestay_id", None)
@@ -559,6 +733,7 @@ class CreatePostView(generics.ListCreateAPIView):
             user_id = request.user.id
             new_post = Post(homestay_id=homestay_id,user_id=user_id, content=content)
             new_post.save()
+            self.update_user_interaction(homestay_id)
             return Response(data=PostSerializer(new_post).data, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
@@ -590,10 +765,10 @@ class GetConformHomestay(generics.RetrieveAPIView):
             offset = self.request.query_params.get('offset', None)
             represent_list = self.get_list_represent_id()
             my_represent_id = ProfileSerializer(my_profile).data['represent_id']
-            print(my_represent_id)
-            predictions = get_predictions(my_represent_id,represent_list)
+            predictions = []
+            with graph_recommendation.as_default():
+                predictions = get_predictions(my_represent_id,represent_list)
             predictions = sorted(predictions,key=lambda x: x[1],reverse=True)
-            print(predictions)
             if((limit is not None) and (offset is not None)):
                 predictions = predictions[int(offset):int(limit) + int(offset)]
             else:
@@ -851,6 +1026,26 @@ class ApproveHomestayView(generics.UpdateAPIView):
 class GetDetailHomestayAdminView(GetHomestayView):
     queryset = Homestay.objects.all()
     permission_classes = (permissions.IsAuthenticated,)
+
+class RatePostView(generics.ListCreateAPIView):
+    queryset = Post.objects.all()
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            post_id = request.data.get('post_id')
+            user_id = request.user.id
+            try:
+                post_like_ref = PostLikeRef.objects.get(user_id=user_id,post_id=post_id)
+                post_like_ref.delete()
+                return Response(data={'type_rate': 'unlike','post_id': post_id},status=status.HTTP_200_OK)
+            except PostLikeRef.DoesNotExist:
+                post_like_ref = PostLikeRef(user_id=user_id,post_id=post_id)
+                post_like_ref.save()
+                return Response(data={'type_rate': 'like','post_id': post_id},status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            return Response({'msg': 'fail'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 

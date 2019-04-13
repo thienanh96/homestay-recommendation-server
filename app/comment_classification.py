@@ -114,6 +114,7 @@ class KerasTextClassifier(BaseTextClassifier):
         X, _ = self.tokenize_sentences(X)
         X = self.word_embed_sentences(X, max_length=self.max_length)
         y = self.predict(np.array(X))
+        print('yyytt: ',y)
         return self.label_result(y)
 
     def load_model(self):
@@ -244,15 +245,21 @@ class KerasTextClassifier(BaseTextClassifier):
                 sentences += batch_sentences
         return sentences
 
-    def label_result(self, result):
-        if result is None:
+    def label_result(self, results):
+        if results is None:
             return 0
-        positive = float(result[0][0])
-        if(positive < 0.45):
+        pos = 0
+        neg = 0
+        for rs in results:
+            pos += rs[0]
+            neg += rs[1]
+        offset = pos-neg
+        if(abs(offset) < 0.1):
+            return 0
+        if(offset >=0.1):
+            return 1
+        if(offset <= -0.1):
             return 2
-        if(positive >= 0.45 and positive <= 0.55):
-            return 0
-        return 1
 
 
 class BiDirectionalLSTMClassifier(KerasTextClassifier):
