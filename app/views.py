@@ -42,6 +42,8 @@ cloudinary.config(
 # labels = keras_text_classifier.classify('hihi')
 # print(labels)
 
+
+
 def train_schedule():
     try:
         user_interactions = UserInteraction.objects.filter(status=0)
@@ -85,6 +87,16 @@ t4.start()
 # while True:
 #     schedule.run_pending()
 #     time.sleep(1) 
+
+def get_profileid_from_auth_userid(me):
+    if not me.is_anonymous:
+        try:
+            profile = Profile.objects.get(email=me.email)
+            return profile.id
+        except Profile.DoesNotExist:
+            return None
+    else:
+        return None
 
 class GetHomestayView(generics.RetrieveAPIView):
     queryset = Homestay.objects.filter(is_allowed=1)
@@ -148,7 +160,7 @@ class GetHomestayView(generics.RetrieveAPIView):
         homestay = serializer_class(homestay_obj).data
         host_id = homestay['host_id']
         host_profile = self.get_profile_host(host_id=host_id)
-        homestay_rate = self.get_homestay_rate(request.user.id, homestay_id)
+        homestay_rate = self.get_homestay_rate(get_profileid_from_auth_userid(request.user), homestay_id)
         homestay_with_hostinfo = {
             'homestay_info': homestay,
             'host_info': None,
@@ -381,10 +393,11 @@ class RateHomestayView(generics.CreateAPIView):
         try:
             homestay_id = request.data.get("homestay_id", "")
             type_rate = request.data.get("type_rate", "")
+            profile_id = get_profileid_from_auth_userid(request.user)
             cursor = connection.cursor()
             try:
                 cursor.callproc('rate_homestay', [
-                                int(request.user.id), int(homestay_id), int(type_rate)])
+                                int(profile_id), int(homestay_id), int(type_rate)])
                 action_type = None
                 if cursor.fetchall()[0][0] is not None:
                     action_type = 'remove'
@@ -394,7 +407,7 @@ class RateHomestayView(generics.CreateAPIView):
                 self.update_user_interaction(homestay_id,type_rate,action_type)
                 return Response(
                     data={'type_rate': type_rate, 'homestay_id': homestay_id,
-                          'user_id': request.user.id, 'status': 200, 'action_type': action_type},
+                          'user_id': profile_id, 'status': 200, 'action_type': action_type},
                     status=status.HTTP_200_OK
                 )
             except Exception as e:
@@ -425,7 +438,7 @@ class GetMyHomestayRateView(generics.RetrieveAPIView):
             homestay_id = self.request.query_params.get('homestay_id', None)
             me_rate = None
             if(homestay_id is not None):
-                homestay_rate = self.get_homestay_rate(request.user.id, homestay_id)
+                homestay_rate = self.get_homestay_rate(get_profileid_from_auth_userid(request.user), homestay_id)
                 if not(homestay_rate is None):
                     homestay_rate_data = HomestayRateSerializer(homestay_rate).data
                     if homestay_rate_data['isType'] == 1:
@@ -513,7 +526,7 @@ class CreateCommentView(generics.CreateAPIView):
         try:
             homestay_id = request.data.get("homestay_id", None)
             content = request.data.get("content", '')
-            user_id = request.user.id
+            user_id = get_profileid_from_auth_userid(request.user)
             text_ = []
             text = re.split('tuy|nhưng',content)
             for txt in text:
@@ -635,17 +648,31 @@ class CreateHomestaySimilarityView(generics.ListCreateAPIView):
             arr_score = []
             for other_homestay in other_homestays:
                 vector_1 = embed_to_vector(current_homestay)
-                vector_2 = embed_to_vector(other_homestay)
+                vector_2 = embed_to_vector(dict(other_homestay))
                 score = get_score(vector_1, vector_2)
                 arr_score.append(score)
+            print('_____________',score)
             connection.cursor().execute("INSERT INTO app_homestaysimilarity (first_homestay_id,second_homestay_id,score) VALUES " +convert_to_text(arr_score)+';')
             return Response(data={'msg': 'ok'}, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             return Response({'msg': 'fail'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class DeleteHomestaySimilarityView(generics.DestroyAPIView):
+    queryset = HomestaySimilarity.objects.all()
+    permission_classes = (permissions.IsAuthenticated,)
 
-
+    def delete(self,request,homestay_id):
+        try:
+            main_query = Q()
+            main_query.add(Q(first_homestay_id=homestay_id), Q.OR)
+            main_query.add(Q(second_homestay_id=homestay_id), Q.OR)
+            homestay_similarities = HomestaySimilarity.objects.filter(main_query)
+            homestay_similarities.delete()
+            return Response(data={'msg': 'ok'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            return Response({'msg': 'fail'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GetPostsView(generics.RetrieveAPIView):
     queryset = Post.objects.all()
@@ -681,12 +708,13 @@ class GetPostsView(generics.RetrieveAPIView):
             limit = self.request.query_params.get('limit', None)
             offset = self.request.query_params.get('offset', None)
             posts = self.queryset
+            profile_id = get_profileid_from_auth_userid(request.user)
             if filter_get == 'newest':
                 posts = self.queryset.order_by('-created_at')
             elif filter_get == 'like':
                 posts = self.queryset.order_by('-count_like')
-            elif (filter_get == 'by-me') and (request.user.id is not None):
-                posts = Post.objects.filter(user_id=request.user.id)
+            elif (filter_get == 'by-me') and (profile_id is not None):
+                posts = Post.objects.filter(user_id=profile_id)
             else:
                 posts = Post.objects.filter(user_id=int(filter_get))
             posts_without_slice = posts
@@ -730,7 +758,7 @@ class CreatePostView(generics.ListCreateAPIView):
             content = request.data.get('content','')     
             if(homestay_id is None):
                 return Response({'msg': 'fail'}, status=status.HTTP_400_BAD_REQUEST)
-            user_id = request.user.id
+            user_id = get_profileid_from_auth_userid(request.user)
             new_post = Post(homestay_id=homestay_id,user_id=user_id, content=content)
             new_post.save()
             self.update_user_interaction(homestay_id)
@@ -836,7 +864,7 @@ class CreateHomestayView(generics.ListCreateAPIView):
             amenities_around = request.data.get('amenities_around')
             images = request.data.get('images')
             represent_id = self.get_next_rep_id()
-            new_homestay = Homestay(represent_id=represent_id,main_price=main_price,price_detail=detail_price,amenities=amenities,amenities_around=amenities_around,name=name,descriptions=desc,highlight=highlight,images=images,city=city,district=district,host_id=request.user.id)
+            new_homestay = Homestay(represent_id=represent_id,main_price=main_price,price_detail=detail_price,amenities=amenities,amenities_around=amenities_around,name=name,descriptions=desc,highlight=highlight,images=images,city=city,district=district,host_id=get_profileid_from_auth_userid(request.user))
             new_homestay.save()
             return Response(data=HomestaySerializer(new_homestay).data, status=status.HTTP_200_OK)
         except Exception as e:
@@ -854,8 +882,8 @@ class UpdateProfileView(generics.UpdateAPIView):
             prefix = request.data.get('prefix')
             password =  request.data.get('password')
             username =  request.data.get('username')
-            me_queryset = Profile.objects.filter(id=request.user.id)
-            me_auth = User.objects.get(id=request.user.id)
+            me_queryset = Profile.objects.filter(email=request.user.email)
+            me_auth = User.objects.get(email=request.user.email)
             if me_auth is not None and password is not None:
                 me_auth.set_password(password)
                 me_auth.save()
@@ -881,12 +909,13 @@ class GetProfileView(generics.ListCreateAPIView):
             user_id = self.request.query_params.get('user_id', None)
             print(me,user_id)
             if me is not None:
-                user_id = request.user.id
+                user_id = get_profileid_from_auth_userid(request.user)
                 print(user_id)
-            my_profile = Profile.objects.get(id=int(user_id))
-            if my_profile is not None:
+            try:
+                my_profile = Profile.objects.get(id=int(user_id))
+                print(my_profile)
                 return Response(data=ProfileSerializer(my_profile).data, status=status.HTTP_200_OK)
-            else:
+            except Profile.DoesNotExist:
                 return Response(data={}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             print(e)
@@ -917,21 +946,40 @@ class DeleteProfileView(generics.DestroyAPIView):
     def delete(self,request,profile_id):
         try:
             my_profile = request.user
-            if(my_profile is not None):
+            if not my_profile.is_anonymous:
                 my_email = my_profile.email
                 if my_email == 'supportcustomer1554737792398@gmail.com':
                     profile = Profile.objects.get(id=profile_id)
-                    if(profile):
-                        profile.delete()
+                    profile.delete()
                     auth_profile = User.objects.get(id=profile_id)
-                    if(auth_profile):
-                        auth_profile.delete()
+                    auth_profile.delete()
                     return Response(data={},status=status.HTTP_200_OK)
                 else:
                     return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
             else:
                 return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
         except expression as identifier:
+            return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class DeleteHomestayView(generics.DestroyAPIView):
+    queryset = Homestay.objects.all()
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self,request,homestay_id):
+        try:
+            my_profile = request.user
+            if not my_profile.is_anonymous:
+                my_email = my_profile.email
+                if my_email == 'supportcustomer1554737792398@gmail.com':
+                    homestay = Homestay.objects.get(homestay_id=homestay_id)
+                    homestay.delete()
+                    return Response(data={},status=status.HTTP_200_OK)
+                else:
+                    return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            print(e)
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -978,7 +1026,7 @@ class DeletePostView(generics.DestroyAPIView):
 
     def delete(self,request,post_id):
         try:
-            my_id = request.user.id
+            my_id = get_profileid_from_auth_userid(request.user)
             post = Post.objects.get(post_id=post_id)
             if post.user_id != int(my_id):
                 return Response(data={},status=status.HTTP_401_UNAUTHORIZED)  
@@ -1034,7 +1082,7 @@ class RatePostView(generics.ListCreateAPIView):
     def post(self, request):
         try:
             post_id = request.data.get('post_id')
-            user_id = request.user.id
+            user_id = get_profileid_from_auth_userid(request.user)
             try:
                 post_like_ref = PostLikeRef.objects.get(user_id=user_id,post_id=post_id)
                 post_like_ref.delete()

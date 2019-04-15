@@ -93,6 +93,8 @@ def create_array(length):
 def adjust_arr(arr):
     final = []
     for el in arr:
+        if el is None:
+            el = ''
         final.append(unidecode(el).replace(' ', '').lower())
     return final
 
@@ -105,9 +107,9 @@ def embed_to_vector(homestay):
         main_price = 0
     vector = {
         'gia': main_price,  # 2
-        'city': unidecode(homestay['city']).replace(' ', '').lower(),  # 3
+        'city': unidecode(homestay['city'] if homestay['city'] is not None else '').replace(' ', '').lower(),  # 3
         # 2
-        'district': unidecode(homestay['district']).replace(' ', '').lower(),
+        'district': unidecode(homestay['district'] if homestay['district'] is not None else '').replace(' ', '').lower(),
         'phongngu': None,
         'phongtam': None,
         'chogiadinh': create_array(len(dict_chogiadinh)),
@@ -118,6 +120,8 @@ def embed_to_vector(homestay):
     }
     for field_name in field_names:
         for key, value in field_name.items():
+            if key is None:
+                key = ''
             key = unidecode(key).replace(' ', '').lower()
             value = adjust_arr(value)
             if((key == 'phongngu')):

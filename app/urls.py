@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import GetHomestayView, GetHomestayWithPaginationView
-from .views import SearchHomestayView, LoginView, RegisterUsers,RateHomestayView,GetCommentWithPaginationView,CreateCommentView,UpdateHomestaySimilarityView,CreateHomestaySimilarityView,GetHomestaySimilarityView,GetPostsView,GetMyHomestayRateView,CreatePostView,GetConformHomestay,UploadPhotoView,CreateHomestayView,UpdateProfileView,GetProfileView,UpdateHomestayView,DeletePostView,GetListProfileView,DeleteProfileView,GetNotAllowedHomestays,ApproveHomestayView,GetDetailHomestayAdminView,RatePostView
+from .views import SearchHomestayView, LoginView, RegisterUsers,RateHomestayView,GetCommentWithPaginationView,CreateCommentView,UpdateHomestaySimilarityView,CreateHomestaySimilarityView,GetHomestaySimilarityView,GetPostsView,GetMyHomestayRateView,CreatePostView,GetConformHomestay,UploadPhotoView,CreateHomestayView,UpdateProfileView,GetProfileView,UpdateHomestayView,DeletePostView,GetListProfileView,DeleteProfileView,GetNotAllowedHomestays,ApproveHomestayView,GetDetailHomestayAdminView,RatePostView,DeleteHomestayView,DeleteHomestaySimilarityView
 
 urlpatterns = [
     path('homestays/<int:homestay_id>/',
@@ -14,6 +14,7 @@ urlpatterns = [
     path('comment',CreateCommentView.as_view(),name='create-comment'),
     path('homestay-similarity/update',UpdateHomestaySimilarityView.as_view(),name='update-homestay_sim'),
     path('homestay-similarity/create',CreateHomestaySimilarityView.as_view(),name='create-homestay_sim'),
+    path('homestay-similarity/delete/<int:homestay_id>',DeleteHomestaySimilarityView.as_view(),name='delete-homestay_sim'),
     path('homestay-similarity/get',GetHomestaySimilarityView.as_view(),name='get-homestay_sim'),
     path('posts/get',GetPostsView.as_view(),name='get-posts'),
     path('homestay/get/myrate',GetMyHomestayRateView.as_view(),name='get-myrate'),
@@ -30,5 +31,6 @@ urlpatterns = [
     path('admin/homestays/get_not_allowed',GetNotAllowedHomestays.as_view(),name='admin-get-homestays-notallowed'),
     path('admin/homestay/approve/<int:homestay_id>',ApproveHomestayView.as_view(),name='admin-approve-homestays'),
     path('admin/homestay/get/<int:homestay_id>',GetDetailHomestayAdminView.as_view(),name='admin-get-homestay'),
+    path('admin/homestay/delete/<int:homestay_id>',DeleteHomestayView.as_view(),name='delete-homestay'),
     path('post/rate',RatePostView.as_view(),name='rate-post')
 ]
