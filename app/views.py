@@ -57,6 +57,9 @@ def train_schedule():
                 user_id = int(ui['user_id'])
                 weight = float(ui['weight'])
                 homestay_id = int(ui['homestay_id'])
+                _homestay = Homestay.objects.get(homestay_id=homestay_id)
+                _homestay = HomestaySerializer(_homestay).data
+                rep_id = int(_homestay['represent_id'])
                 if(weight > 0):
                     users.append(user_id)
                     labels.append(weight)
@@ -536,7 +539,7 @@ class CreateCommentView(generics.CreateAPIView):
             final_label = 0
             with graph.as_default():
                 final_label = classify_comment(text_)
-            # self.update_user_interaction(homestay_id,int(final_label))
+            self.update_user_interaction(homestay_id,int(final_label))
             new_comment = Comment(homestay_id=homestay_id,user_id=user_id, content=content,sentiment=final_label)
             new_comment.save()
             new_comment_raw = CommentSerializer(new_comment).data
@@ -777,10 +780,22 @@ class GetConformHomestay(generics.RetrieveAPIView):
         ids = map(lambda x : x['represent_id'],homestays)
         return list(ids)
 
-    def get_list_homestay_with_ids(self,ids):
-        ordering = 'FIELD(`represent_id`, %s)' % ','.join(str(idd) for idd in ids)
-        homestays = Homestay.objects.filter(represent_id__in=ids).extra(select={'ordering': ordering}, order_by=('ordering',))
-        homestays = HomestaySerializer(homestays,many=True).data
+    def get_list_homestay_with_ids(self,ids,limit,offset):
+        final_limit = 10
+        final_offset = 0
+        if((limit is not None) and (offset is not None)):
+            final_limit = int(limit)
+            final_offset = int(offset)
+        start_len = final_limit
+        end_len = 0
+        homestays = []
+        while start_len - end_len > 0:
+            _ids = ids[final_offset:final_limit + final_offset]
+            ordering = 'FIELD(`represent_id`, %s)' % ','.join(str(idd) for idd in _ids)
+            homestays = Homestay.objects.filter(represent_id__in=_ids).extra(select={'ordering': ordering}, order_by=('ordering',))
+            homestays = HomestaySerializer(homestays,many=True).data
+            end_len = len(homestays)
+            final_limit += start_len - end_len
         return homestays
 
 
@@ -797,12 +812,13 @@ class GetConformHomestay(generics.RetrieveAPIView):
             with graph_recommendation.as_default():
                 predictions = get_predictions(my_represent_id,represent_list)
             predictions = sorted(predictions,key=lambda x: x[1],reverse=True)
-            if((limit is not None) and (offset is not None)):
-                predictions = predictions[int(offset):int(limit) + int(offset)]
-            else:
-                predictions = predictions[0:10]
+            # if((limit is not None) and (offset is not None)):
+            #     predictions = predictions[int(offset):int(limit) + int(offset)]
+            # else:
+            #     predictions = predictions[0:10]
             ids = map(lambda x : x[0],predictions)
-            homestays = self.get_list_homestay_with_ids(list(ids))
+            ids = list(ids)
+            homestays = self.get_list_homestay_with_ids(ids,limit,offset)
             return Response(data=homestays, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)

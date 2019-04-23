@@ -62,17 +62,17 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
 
     # Embedding layer
     MF_Embedding_User = Embedding(input_dim=num_users, output_dim=mf_dim, name='mf_embedding_user',
-                                  embeddings_initializer=initializers.Zeros(), embeddings_regularizer=l2(reg_mf), input_length=1)
+                                  embeddings_initializer=initializers.VarianceScaling(scale=0.01, mode='fan_in', distribution='normal', seed=None), embeddings_regularizer=l2(reg_mf), input_length=1)
     MF_Embedding_User.trainable = True
     MF_Embedding_Item = Embedding(input_dim=num_items, output_dim=mf_dim, name='mf_embedding_item',
-                                embeddings_initializer=initializers.Zeros(),embeddings_regularizer=l2(reg_mf), input_length=1)
+                                embeddings_initializer=initializers.VarianceScaling(scale=0.01, mode='fan_in', distribution='normal', seed=None),embeddings_regularizer=l2(reg_mf), input_length=1)
     MF_Embedding_Item.trainable = True
 
     MLP_Embedding_User = Embedding(input_dim=num_users, output_dim=int(layers[0]/2), name="mlp_embedding_user",
-                                embeddings_initializer=initializers.Zeros(),embeddings_regularizer=l2(reg_layers[0]), input_length=1)
+                                embeddings_initializer=initializers.VarianceScaling(scale=0.01, mode='fan_in', distribution='normal', seed=None),embeddings_regularizer=l2(reg_layers[0]), input_length=1)
     MLP_Embedding_User.trainable = True
     MLP_Embedding_Item = Embedding(input_dim=num_items, output_dim=int(layers[0]/2), name='mlp_embedding_item',
-                                embeddings_initializer=initializers.Zeros(),embeddings_regularizer=l2(reg_layers[0]), input_length=1)
+                                embeddings_initializer=initializers.VarianceScaling(scale=0.01, mode='fan_in', distribution='normal', seed=None),embeddings_regularizer=l2(reg_layers[0]), input_length=1)
     MLP_Embedding_Item.trainable = True
     # MF part
     mf_user_latent_layer = Flatten()
@@ -93,8 +93,8 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     mlp_vector = Concatenate(axis=-1)([mlp_user_latent, mlp_item_latent])
     for idx in range(1, num_layer):
         layer = Dense(output_dim=int(layers[idx]), kernel_regularizer=l2(
-            reg_layers[idx]),kernel_initializer=initializers.Zeros(), activation='relu', name="layer%d" % idx)
-        layer.trainable = False
+            reg_layers[idx]), activation='relu', name="layer%d" % idx)
+        layer.trainable = True
         mlp_vector = layer(mlp_vector)
     # Concatenate MF and MLP parts
     #mf_vector = Lambda(lambda x: x * alpha)(mf_vector)
@@ -102,7 +102,7 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     predict_vector = Concatenate(axis=-1)([mf_vector, mlp_vector])
     # Final prediction layer
     prediction_layer = Dense(1, activation='sigmoid',
-                             kernel_initializer=initializers.Zeros(), name="prediction")
+                             kernel_initializer='lecun_uniform', name="prediction")
     prediction_layer.trainable = True
     prediction = prediction_layer(predict_vector)
     print('end')
@@ -141,6 +141,8 @@ def train_model(users,rooms,labels):
 
 model = load_model(8, [64, 32, 16, 8], [0, 0, 0, 0], 0)
 model.compile(optimizer=Adam(lr=0.001), loss='binary_crossentropy')
+summary= model.summary()
+print(summary)
 graph_recommendation = tf.get_default_graph()
 
 # get_predictions(int(10002), [int(10017), int(10018)])
