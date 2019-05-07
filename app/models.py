@@ -52,6 +52,7 @@ class Homestay(models.Model):
     city = models.CharField(max_length=200)
     district = models.CharField(max_length=200)
     is_allowed = models.IntegerField(default=0)
+    status = models.IntegerField(default=1)
     created_at = models.DateTimeField('created_at', auto_now_add=True)
     updated_at = models.DateTimeField('updated_at', auto_now=True)
 

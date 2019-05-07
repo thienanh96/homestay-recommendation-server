@@ -102,7 +102,7 @@ def get_profileid_from_auth_userid(me):
         return None
 
 class GetHomestayView(generics.RetrieveAPIView):
-    queryset = Homestay.objects.filter(is_allowed=1)
+    queryset = Homestay.objects.filter(is_allowed=1,status=1)
     serializer_class = HomestaySerializer
     # authentication_classes = (authentication.BasicAuthentication,)
 
@@ -129,7 +129,7 @@ class GetHomestayView(generics.RetrieveAPIView):
         if type_get == 'admin':
             if user is None:
                 return False
-            if user.email != 'supportcustomer1554737792398@gmail.com':
+            if user.email != 'admin@gmail.com':
                 return False
             return True
         else:
@@ -184,11 +184,11 @@ class GetHomestayView(generics.RetrieveAPIView):
 
 
 class GetHomestayWithPaginationView(generics.RetrieveAPIView):
-    queryset = Homestay.objects.filter(is_allowed=1)
+    queryset = Homestay.objects.filter(is_allowed=1,status=1)
     authentication_classes = (authentication.BasicAuthentication,)
 
     def get_homestay_queryset(self, limit, offset):
-        return Homestay.objects.filter(is_allowed=1).order_by('created_at')[offset:offset+limit]
+        return Homestay.objects.filter(is_allowed=1,status=1).order_by('created_at')[offset:offset+limit]
 
     def get_profile_queryset(self, limit=0, offset=0):
         return Profile.objects.all()[limit:limit+offset]
@@ -228,7 +228,7 @@ class GetHomestayWithPaginationView(generics.RetrieveAPIView):
 
 
 class SearchHomestayView(generics.ListCreateAPIView):
-    queryset = Homestay.objects.filter(is_allowed=1)
+    queryset = Homestay.objects.filter(is_allowed=1,status=1)
     serializer_class = HomestaySerializer
     authentication_classes = (authentication.BasicAuthentication,)
 
@@ -253,6 +253,7 @@ class SearchHomestayView(generics.ListCreateAPIView):
             order_by = self.request.query_params.get('order_by', None)
             main_query = Q()
             main_query.add(Q(is_allowed=1),Q.AND)
+            main_query.add(Q(status=1),Q.AND)
             if(name is not None):
                 main_query.add(Q(name__icontains=name), Q.AND)
             elif(ids is not None):
@@ -564,7 +565,7 @@ class GetHomestaySimilarityView(generics.ListCreateAPIView):
 
     def get_list_homestay_with_ids(self,ids):
         ordering = 'FIELD(`homestay_id`, %s)' % ','.join(str(idd) for idd in ids)
-        homestays = Homestay.objects.filter(homestay_id__in=ids).extra(select={'ordering': ordering}, order_by=('ordering',))
+        homestays = Homestay.objects.filter(homestay_id__in=ids,is_allowed=1,status=1).extra(select={'ordering': ordering}, order_by=('ordering',))
         homestays = HomestaySerializer(homestays,many=True).data
         return homestays
 
@@ -771,7 +772,7 @@ class CreatePostView(generics.ListCreateAPIView):
             return Response({'msg': 'fail'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GetConformHomestay(generics.RetrieveAPIView):
-    queryset = Homestay.objects.filter(is_allowed=True)
+    queryset = Homestay.objects.filter(is_allowed=1,status=1)
     homestay_count = Homestay.objects.count()
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -825,7 +826,7 @@ class GetConformHomestay(generics.RetrieveAPIView):
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UploadPhotoView(generics.ListCreateAPIView):
-    queryset = Homestay.objects.filter(is_allowed=True)
+    queryset = Homestay.objects.filter(is_allowed=1)
     # permission_classes = (permissions.NOT,)
     def post(self, request, *args, **kwargs):
         try:
@@ -964,7 +965,7 @@ class DeleteProfileView(generics.DestroyAPIView):
             my_profile = request.user
             if not my_profile.is_anonymous:
                 my_email = my_profile.email
-                if my_email == 'supportcustomer1554737792398@gmail.com':
+                if my_email == 'admin@gmail.com':
                     profile = Profile.objects.get(id=profile_id)
                     profile.delete()
                     auth_profile = User.objects.get(id=profile_id)
@@ -986,9 +987,10 @@ class DeleteHomestayView(generics.DestroyAPIView):
             my_profile = request.user
             if not my_profile.is_anonymous:
                 my_email = my_profile.email
-                if my_email == 'supportcustomer1554737792398@gmail.com':
+                if my_email == 'admin@gmail.com':
                     homestay = Homestay.objects.get(homestay_id=homestay_id)
-                    homestay.delete()
+                    homestay.status = -1
+                    homestay.save()
                     return Response(data={},status=status.HTTP_200_OK)
                 else:
                     return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
@@ -1058,7 +1060,7 @@ class GetNotAllowedHomestays(generics.RetrieveAPIView):
     def get(self,request):
         try:
             my_email = request.user.email
-            if(my_email != 'supportcustomer1554737792398@gmail.com'):
+            if(my_email != 'admin@gmail.com'):
                 return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
             homestays = self.get_queryset()
             homestays = HomestaySerializer(homestays,many=True).data
@@ -1074,7 +1076,7 @@ class ApproveHomestayView(generics.UpdateAPIView):
     def put(self, request, homestay_id):
         try:
             my_email = request.user.email
-            if(my_email != 'supportcustomer1554737792398@gmail.com'):
+            if(my_email != 'admin@gmail.com'):
                 return Response(data={},status=status.HTTP_401_UNAUTHORIZED)
             homestay = Homestay.objects.get(homestay_id=homestay_id)
             if homestay is not None:
