@@ -945,12 +945,20 @@ class GetListProfileView(generics.ListCreateAPIView):
 
     def get_list_profile_queryset(self, limit, offset):
         return self.get_queryset().order_by('created_at')[int(offset):int(offset)+int(limit)]
+    
+    def get_list_profile_by_name(self,text_search):
+        return Profile.objects.filter(user_name__icontains=text_search).order_by('created_at')
 
     def get(self, request, *args, **kwargs):
         try:
             limit = self.request.query_params.get('limit', 8)
             offset = self.request.query_params.get('offset', 0)
-            list_profiles = self.get_list_profile_queryset(limit,offset)
+            name = self.request.query_params.get('name', None)
+            list_profiles = None
+            if name is not None:
+                list_profiles = self.get_list_profile_by_name(name)
+            else: 
+                list_profiles = self.get_list_profile_queryset(limit,offset)
             return Response(data={'dt': ProfileSerializer(list_profiles,many=True).data, 'total': self.count}, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
