@@ -147,8 +147,8 @@ DATABASES = {
         'NAME': 'homestay_recommendation',
         'USER': 'root',
         'PASSWORD': '22051996_Anh',
-        # 'HOST': '127.0.0.1',
-        'HOST': 'db_hr',
+        'HOST': '127.0.0.1',
+        # 'HOST': 'db_hr',
         'PORT': '3306',
     }
 }

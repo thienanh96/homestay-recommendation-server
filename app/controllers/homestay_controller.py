@@ -41,7 +41,8 @@ class HomestayController:
 
     def update_user_interaction(self,me,homestay_id):
         try:
-            if me is not None:
+            user_service = UserService()
+            if me is not None and user_service.check_anonymous(me) == False:
                 profile = Profile.objects.get(email=me.email)
                 if profile.represent_id is not None:
                     try:
@@ -63,18 +64,18 @@ class HomestayController:
         homestay_rate_service = HomestayRateService()
         homestay_service = HomestayService()
         authorize = user_service.authorize_user(current_user,type_get)
-        print('def get_homestay(self,current_user,homestay_id,type_get):__ ============>',authorize)
         if authorize == False:
             return None,401
         mode = None
         profile_id = user_service.get_profileid_from_auth_userid(current_user)
         if user_service.check_anonymous(current_user):
             mode = 'anonymous'
-        elif user_service.is_admin(my_email=current_user.email):
+        elif user_service.is_admin(me=current_user):
             mode = 'admin'
         elif homestay_service.is_owner(user_id=profile_id,homestay_id=homestay_id):
             mode = 'host'
         homestay_obj = homestay_service.get_detail_homestay(homestay_id=homestay_id,mode=mode)
+        print('run here')
         if homestay_obj is None:
             return None,204
         homestay = HomestaySerializer(homestay_obj).data
@@ -188,7 +189,7 @@ class HomestayController:
         user_service = UserService()
         if not current_user.is_anonymous:
             my_email = current_user.email
-            if user_service.is_admin(my_email=my_email):
+            if user_service.is_admin(me=current_user):
                 homestay_service.update_status_homestay(homestay_id=homestay_id,status=-1)
                 return {'msg': '200'}
             else:
@@ -217,7 +218,7 @@ class HomestayController:
         user_service = UserService()
         homestay_service = HomestayService()
         my_email = current_user.email
-        if not user_service.is_admin(my_email=my_email):
+        if not user_service.is_admin(me=current_user):
             return 401
         homestay = homestay_service.get_homestay_by_id(homestay_id=homestay_id)
         if homestay is not None:
@@ -263,7 +264,7 @@ class HomestayController:
         user_service = UserService()
         homestay_service = HomestayService()
         my_email = current_user.email
-        if not user_service.is_admin(my_email=my_email):
+        if not user_service.is_admin(me=current_user):
             return None,0, 401
         if ids is None and name is None:
             homestays = homestay_service.get_list_homestay_by_permission(is_allowed=is_allowed,status=None)
@@ -278,7 +279,7 @@ class HomestayController:
         user_service = UserService()
         homestay_service = HomestayService()
         my_email = current_user.email
-        if not user_service.is_admin(my_email=my_email):
+        if not user_service.is_admin(me=current_user):
             return None,401
         homestay = homestay_service.get_homestay_by_id(homestay_id=homestay_id)
         if homestay is None:

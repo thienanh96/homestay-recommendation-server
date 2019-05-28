@@ -36,6 +36,8 @@ class UserService:
         self.users = None
     
     def authorize_user(self,user,type_get):
+        if self.check_anonymous(user) == True:
+            return True
         if type_get == 'admin':
             if user is None:
                 return False
@@ -100,5 +102,7 @@ class UserService:
     def get_user_by_id(self,id):
         return User.objects.get(id=int(id))
 
-    def is_admin(self,my_email):
-        return my_email == EMAIL_ADMIN
+    def is_admin(self,me):
+        if self.check_anonymous(me) == True:
+            return False
+        return me.email == EMAIL_ADMIN
