@@ -21,8 +21,8 @@ print('runnn')
 # print 'Version of Theano: 0.8.0 '
 # print 'Version of Tensoflow: 0.12.1 '
 
-num_users = 13941
-num_items = 14486
+num_users = 16040
+num_items = 13706
 batch_size = 1
 
 
@@ -36,7 +36,7 @@ def load_model(mf_dim, layers, reg_layers, reg_mf):
                             layers, reg_layers, reg_mf)
     # neucf_model.load_weights('Pretrain/ml-1m_NeuMF_8_[64,32,16,8]_1549202026.h5')
     neucf_model.load_weights(
-        'app/model_dl/ml-1m_NeuMF_8_[64,32,16,8]_1553786394.h5')
+        'app/model_dl/recommedation_model.h5')
     return neucf_model
 
 
@@ -76,18 +76,18 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     MLP_Embedding_Item.trainable = True
     # MF part
     mf_user_latent_layer = Flatten()
-    mf_user_latent_layer.trainable = False
+    mf_user_latent_layer.trainable = True
     mf_user_latent = mf_user_latent_layer(MF_Embedding_User(user_input))
     mf_item_latent_layer = Flatten()
-    mf_item_latent_layer.trainable = False
+    mf_item_latent_layer.trainable = True
     mf_item_latent = mf_item_latent_layer(MF_Embedding_Item(item_input))
     mf_vector = Multiply()([mf_user_latent, mf_item_latent])
     # MLP part
     mlp_user_latent_layer = Flatten()
-    mlp_user_latent_layer.trainable = False
+    mlp_user_latent_layer.trainable = True
     mlp_user_latent = mlp_user_latent_layer(MLP_Embedding_User(user_input))
     mlp_item_latent_layer = Flatten()
-    mlp_item_latent_layer.trainable = False
+    mlp_item_latent_layer.trainable = True
     mlp_item_latent = mlp_item_latent_layer(MLP_Embedding_Item(item_input))
     # mlp_vector = merge([mlp_user_latent, mlp_item_latent], mode='concat')
     mlp_vector = Concatenate(axis=-1)([mlp_user_latent, mlp_item_latent])
@@ -136,11 +136,11 @@ def train_model(users,rooms,labels):
     y = list(map(lambda label: sigmoid(int(label)),labels))
     print(y)
     model.train_on_batch([np.array(users),np.array(rooms)], np.array(y), sample_weight=None, class_weight=None)
-    model.save_weights('app/model_dl/ml-1m_NeuMF_8_[64,32,16,8]_1553786394.h5', overwrite=True)
+    model.save_weights('app/model_dl/recommedation_model.h5', overwrite=True)
 
 
-model = load_model(8, [64, 32, 16, 8], [0, 0, 0, 0], 0)
-model.compile(optimizer=Adam(lr=0.001), loss='binary_crossentropy')
+model = load_model(16, [64, 32, 16, 8], [0, 0, 0, 0], 0)
+model.compile(optimizer=Adam(lr=0.01), loss='binary_crossentropy')
 summary= model.summary()
 print(summary)
 graph_recommendation = tf.get_default_graph()

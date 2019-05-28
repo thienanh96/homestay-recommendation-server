@@ -16,14 +16,29 @@ class DatasetLuxstay():
         self.room_mapping_arr = []
 
         self.dokMatrix = []
-        self.trainMatrix = self.load_rating_file_as_matrix('new_luxstay.csv')
-        self.testNegatives = self.loadNegative(self.dokMatrix)
-        self.testRatings = self.load_rating_file_as_list(self.dokMatrix)
+        self.trainMatrix = self.load_rating_file_as_matrix('luxstay_train.csv')
+        self.testNegatives = self.load_negative_file('luxstay_test_negative.csv')
+        test_rating_matrix = self.load_rating_file_test_rating('luxstay_test.csv')
+        self.testRatings = self.load_rating_file_as_list(test_rating_matrix)
+        print('Check len____________',len(self.testRatings),len(self.testNegatives))
         assert len(self.testRatings) == len(self.testNegatives)
         self.num_users, self.num_items = self.trainMatrix.shape
 
     def loadHomestayFromCSV(self, filename):
         df = pd.read_csv(filename, sep="\s+")
+    
+    def load_negative_file(self, filename):
+        negativeList = []
+        with open(filename, "r") as f:
+            line = f.readline()
+            while line != None and line != "":
+                arr = line.split("\t")
+                negatives = []
+                for x in arr[1: ]:
+                    negatives.append(int(x))
+                negativeList.append(negatives)
+                line = f.readline()
+        return negativeList
 
     def loadNegative(self, ratingMatrix):
         finalMatrix = []
@@ -59,20 +74,40 @@ class DatasetLuxstay():
         num_users, num_items, min_items = 0, 0, 1000000000  # init values
         dfData = pd.read_csv(filename, sep="\s+", header=None)
         for ir in dfData.itertuples():
-            r, u = int(ir[2]), int(ir[3])
+            r, u = int(ir[2]), int(ir[1])
             num_users = max(num_users, u)
             num_items = max(num_items, r)
             min_items = min(num_items, r)
+        print('MAX MIN user rooms____: ',num_users,num_items)
         # Construct matrix
         mat = sp.dok_matrix(
             (num_users+1, num_items+1), dtype=np.float32)
         count = 0
         for ir in dfData.itertuples():
-            r, u = int(ir[2]), int(ir[3])
+            r, u = int(ir[2]), int(ir[1])
             mat[u, r] = mat[u, r] + 1
             count += 1
         self.dokMatrix = np.array(mat.todense())
         return mat
+    
+    def load_rating_file_test_rating(self, filename):
+        num_users, num_items, min_items = 0, 0, 1000000000  # init values
+        dfData = pd.read_csv(filename, sep="\s+", header=None)
+        for ir in dfData.itertuples():
+            r, u = int(ir[2]), int(ir[1])
+            num_users = max(num_users, u)
+            num_items = max(num_items, r)
+            min_items = min(num_items, r)
+        print('MAX MIN user rooms: ',num_users,num_items)
+        # Construct matrix
+        mat = sp.dok_matrix(
+            (num_users+1, num_items+1), dtype=np.float32)
+        count = 0
+        for ir in dfData.itertuples():
+            r, u = int(ir[2]), int(ir[1])
+            mat[u, r] = mat[u, r] + 1
+            count += 1
+        return np.array(mat.todense())
 
     def load_rating_file_as_list(self, ratingMatrix):
         finalMatrix = []
@@ -85,6 +120,7 @@ class DatasetLuxstay():
                     break
                 itemIndex += 1
             userIndex += 1
+        print('def load_rating_file_as_list(self, ratingMatrix): ===>length finalMatrix',len(finalMatrix))
         return finalMatrix
 
     def user_mapping(self):

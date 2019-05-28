@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import GetHomestayView, GetHomestayWithPaginationView
-from .views import SearchHomestayView, LoginView, RegisterUsers,RateHomestayView,GetCommentWithPaginationView,CreateCommentView,UpdateHomestaySimilarityView,CreateHomestaySimilarityView,GetHomestaySimilarityView,GetPostsView,GetMyHomestayRateView,CreatePostView,GetConformHomestay,UploadPhotoView,CreateHomestayView,UpdateProfileView,GetProfileView,UpdateHomestayView,DeletePostView,GetListProfileView,DeleteProfileView,GetNotAllowedHomestays,ApproveHomestayView,GetDetailHomestayAdminView,RatePostView,DeleteHomestayView,DeleteHomestaySimilarityView
+from .views import SearchHomestayView, LoginView, RegisterUsers,RateHomestayView,GetCommentWithPaginationView,CreateCommentView,UpdateHomestaySimilarityView,CreateHomestaySimilarityView,GetHomestaySimilarityView,GetPostsView,GetMyHomestayRateView,CreatePostView,GetConformHomestay,UploadPhotoView,CreateHomestayView,UpdateProfileView,GetProfileView,UpdateHomestayView,DeletePostView,GetListProfileView,DeleteProfileView,GetHomestaysByAdmin,ApproveHomestayView,GetDetailHomestayAdminView,RatePostView,DeleteHomestayView,DeleteHomestaySimilarityView,LockHomestayView
 
 urlpatterns = [
     path('homestays/<int:homestay_id>/',
@@ -28,8 +28,9 @@ urlpatterns = [
     path('post/delete/<int:post_id>',DeletePostView.as_view(),name='delete-post'),
     path('profile/getlist',GetListProfileView.as_view(),name='get-list-profile'),
     path('profile/delete/<int:profile_id>',DeleteProfileView.as_view(),name='delete-profile'),
-    path('admin/homestays/get_not_allowed',GetNotAllowedHomestays.as_view(),name='admin-get-homestays-notallowed'),
+    path('admin/homestays/get',GetHomestaysByAdmin.as_view(),name='admin-get-homestays-notallowed'),
     path('admin/homestay/approve/<int:homestay_id>',ApproveHomestayView.as_view(),name='admin-approve-homestays'),
+    path('admin/homestay/lock/<int:homestay_id>',LockHomestayView.as_view(),name='admin-lock-homestays'),
     path('admin/homestay/get/<int:homestay_id>',GetDetailHomestayAdminView.as_view(),name='admin-get-homestay'),
     path('admin/homestay/delete/<int:homestay_id>',DeleteHomestayView.as_view(),name='delete-homestay'),
     path('post/rate',RatePostView.as_view(),name='rate-post')

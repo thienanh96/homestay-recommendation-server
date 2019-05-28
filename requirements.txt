@@ -1,0 +1,15 @@
+tensorflow
+keras
+unidecode
+textdistance
+scipy
+numpy
+Django
+cloudinary
+djangorestframework
+pyvi
+gensim
+django_mysql
+mysqlclient
+schedule
+djangorestframework-jwt

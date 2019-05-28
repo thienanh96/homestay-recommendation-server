@@ -1,14 +1,4 @@
-'''
-Created on Aug 9, 2016
-Keras Implementation of Neural Matrix Factorization (NeuMF) recommender model in:
-He Xiangnan et al. Neural Collaborative Filtering. In WWW 2017.  
-
-@author: Xiangnan He (xiangnanhe@gmail.com)
-'''
 import numpy as np
-
-import theano
-import theano.tensor as T
 import keras
 from keras import backend as K
 from keras import initializers
@@ -21,8 +11,6 @@ from evaluate import evaluate_model
 from DatasetLuxstay import DatasetLuxstay
 from time import time
 import sys
-# import GMF
-# import MLP
 import argparse
 import pandas as pd
 
@@ -78,11 +66,6 @@ def parse_args():
 def init_normal(shape, name=None):
     return initializations.normal(shape, scale=0.01, name=name)
 
-# def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_mf=0):
-#     assert len(layers) == len(reg_layers)
-#     num_layer = len(layers)  # Number of layers in the MLP
-#     MF_Embedding_User = Model.Sequ
-
 
 
 def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_mf=0):
@@ -103,31 +86,18 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     MLP_Embedding_Item = Embedding(input_dim=num_items, output_dim=int(layers[0]/2), name='mlp_embedding_item',
                                 embeddings_initializer=initializers.VarianceScaling(scale=0.01, mode='fan_in', distribution='normal', seed=None),embeddings_regularizer=l2(reg_layers[0]), input_length=1)
     # MF part
-    print('pass1')
     mf_user_latent = Flatten()(MF_Embedding_User(user_input))
     mf_item_latent = Flatten()(MF_Embedding_Item(item_input))
-    # mf_vector = Multiply()([mf_user_latent, mf_item_latent])
     mf_vector = multiply([mf_user_latent, mf_item_latent])
     # MLP part
-    print('pass2')
-    print('pass 2.1')
     mlp_user_latent = Flatten()(MLP_Embedding_User(user_input))
-    print('pass2.2')
     mlp_item_latent = Flatten()(MLP_Embedding_Item(item_input))
-    # mlp_vector = merge([mlp_user_latent, mlp_item_latent], mode='concat')
-    print('pass2.5')
     mlp_vector = concatenate([mlp_user_latent, mlp_item_latent],axis=1)
-    # mlp_vector = Concatenate(axis=-1)([mlp_user_latent, mlp_item_latent])
-    print('pass3')
     for idx in range(1, num_layer):
         layer = Dense(output_dim=int(layers[idx]), kernel_regularizer=l2(
             reg_layers[idx]), activation='relu', name="layer%d" % idx)
         # layer.trainable = False
         mlp_vector = layer(mlp_vector)
-    # Concatenate MF and MLP parts
-    #mf_vector = Lambda(lambda x: x * alpha)(mf_vector)
-    #mlp_vector = Lambda(lambda x : x * (1-alpha))(mlp_vector)
-    # predict_vector = Concatenate(axis=-1)([mf_vector, mlp_vector])
     predict_vector = concatenate([mf_vector, mlp_vector],axis=1)
     # Final prediction layer
     prediction_layer = Dense(1, activation='sigmoid',
@@ -138,80 +108,7 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     return Model(input=[user_input, item_input], output=prediction)
 
 
-# def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_mf=0):
-#     assert len(layers) == len(reg_layers)
-#     num_layer = len(layers)  # Number of layers in the MLP
-#     # Input variables
-#     user_input = Input(shape=(1,), dtype='int32', name='user_input')
-#     item_input = Input(shape=(1,), dtype='int32', name='item_input')
 
-#     # Embedding layer
-#     MF_Embedding_User = Embedding(input_dim=num_users, output_dim=mf_dim, name='mf_embedding_user',
-#                                   init=init_normal, W_regularizer=l2(reg_mf), input_length=1)
-#     MF_Embedding_Item = Embedding(input_dim=num_items, output_dim=mf_dim, name='mf_embedding_item',
-#                                   init=init_normal, W_regularizer=l2(reg_mf), input_length=1)
-
-#     MLP_Embedding_User = Embedding(input_dim=num_users, output_dim=layers[0]/2, name="mlp_embedding_user",
-#                                    init=init_normal, W_regularizer=l2(reg_layers[0]), input_length=1)
-#     MLP_Embedding_Item = Embedding(input_dim=num_items, output_dim=layers[0]/2, name='mlp_embedding_item',
-#                                    init=init_normal, W_regularizer=l2(reg_layers[0]), input_length=1)
-
-#     # MF part
-#     mf_user_latent = Flatten()(MF_Embedding_User(user_input))
-#     mf_item_latent = Flatten()(MF_Embedding_Item(item_input))
-#     mf_vector = merge([mf_user_latent, mf_item_latent],
-#                       mode='mul')  # element-wise multiply
-
-#     # MLP part
-#     mlp_user_latent = Flatten()(MLP_Embedding_User(user_input))
-#     mlp_item_latent = Flatten()(MLP_Embedding_Item(item_input))
-#     mlp_vector = merge([mlp_user_latent, mlp_item_latent], mode='concat')
-#     for idx in range(1, num_layer):
-#         layer = Dense(layers[idx], W_regularizer=l2(
-#             reg_layers[idx]), activation='relu', name="layer%d" % idx)
-#         mlp_vector = layer(mlp_vector)
-
-#     # Concatenate MF and MLP parts
-#     #mf_vector = Lambda(lambda x: x * alpha)(mf_vector)
-#     #mlp_vector = Lambda(lambda x : x * (1-alpha))(mlp_vector)
-#     predict_vector = merge([mf_vector, mlp_vector], mode='concat')
-
-#     # Final prediction layer
-#     prediction = Dense(1, activation='sigmoid',
-#                        init='lecun_uniform', name="prediction")(predict_vector)
-
-#     model = Model(input=[user_input, item_input],
-#                   output=prediction)
-
-#     return model
-
-
-def load_pretrain_model(model, gmf_model, mlp_model, num_layers):
-    # MF embeddings
-    gmf_user_embeddings = gmf_model.get_layer('user_embedding').get_weights()
-    gmf_item_embeddings = gmf_model.get_layer('item_embedding').get_weights()
-    model.get_layer('mf_embedding_user').set_weights(gmf_user_embeddings)
-    model.get_layer('mf_embedding_item').set_weights(gmf_item_embeddings)
-
-    # MLP embeddings
-    mlp_user_embeddings = mlp_model.get_layer('user_embedding').get_weights()
-    mlp_item_embeddings = mlp_model.get_layer('item_embedding').get_weights()
-    model.get_layer('mlp_embedding_user').set_weights(mlp_user_embeddings)
-    model.get_layer('mlp_embedding_item').set_weights(mlp_item_embeddings)
-
-    # MLP layers
-    for i in range(1, num_layers):
-        mlp_layer_weights = mlp_model.get_layer('layer%d' % i).get_weights()
-        model.get_layer('layer%d' % i).set_weights(mlp_layer_weights)
-
-    # Prediction weights
-    gmf_prediction = gmf_model.get_layer('prediction').get_weights()
-    mlp_prediction = mlp_model.get_layer('prediction').get_weights()
-    new_weights = np.concatenate(
-        (gmf_prediction[0], mlp_prediction[0]), axis=0)
-    new_b = gmf_prediction[1] + mlp_prediction[1]
-    model.get_layer('prediction').set_weights([0.5*new_weights, 0.5*new_b])
-    return model
 
 
 def get_train_instances(train, num_negatives,test_negatives):
@@ -250,7 +147,7 @@ if __name__ == '__main__':
     verbose = args.verbose
     mf_pretrain = args.mf_pretrain
     mlp_pretrain = args.mlp_pretrain
-
+    print('Check learning rate: ',learning_rate)
     topK = 10
     evaluation_threads = 1  # mp.cpu_count()
     print("NeuMF arguments: %s " % (args))
@@ -260,7 +157,6 @@ if __name__ == '__main__':
     # Loading data
     t1 = time()
     dataset = DatasetLuxstay()
-    # dataset = Dataset(args.path + args.dataset)
     train, testRatings, testNegatives = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
     num_users, num_items = train.shape
     print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d"
@@ -269,28 +165,7 @@ if __name__ == '__main__':
     # Build model
     model = get_model(num_users+10000, num_items+10000,
                       mf_dim, layers, reg_layers, reg_mf)
-    if learner.lower() == "adagrad":
-        model.compile(optimizer=Adagrad(lr=learning_rate),
-                      loss='binary_crossentropy')
-    elif learner.lower() == "rmsprop":
-        model.compile(optimizer=RMSprop(lr=learning_rate),
-                      loss='binary_crossentropy')
-    elif learner.lower() == "adam":
-        model.compile(optimizer=Adam(lr=learning_rate),
-                      loss='binary_crossentropy')
-    else:
-        model.compile(optimizer=SGD(lr=learning_rate),
-                      loss='binary_crossentropy')
-
-    # Load pretrain model
-    if mf_pretrain != '' and mlp_pretrain != '':
-        gmf_model = GMF.get_model(num_users, num_items, mf_dim)
-        gmf_model.load_weights(mf_pretrain)
-        mlp_model = MLP.get_model(num_users, num_items, layers, reg_layers)
-        mlp_model.load_weights(mlp_pretrain)
-        model = load_pretrain_model(model, gmf_model, mlp_model, len(layers))
-        print("Load pretrained GMF (%s) and MLP (%s) models done. " %
-              (mf_pretrain, mlp_pretrain))
+    model.compile(optimizer=Adam(lr=learning_rate),loss='binary_crossentropy',metrics=["accuracy"])
 
     # Init performance
     (hits, ndcgs) = evaluate_model(model, testRatings,
@@ -318,10 +193,10 @@ if __name__ == '__main__':
         if epoch % verbose == 0:
             (hits, ndcgs) = evaluate_model(model, testRatings,
                                            testNegatives, topK, evaluation_threads)
-            hr, ndcg, loss = np.array(hits).mean(), np.array(
-                ndcgs).mean(), hist.history['loss'][0]
-            print('Iteration %d [%.1f s]: HR = %.4f, NDCG = %.4f, loss = %.4f [%.1f s]'
-                  % (epoch,  t2-t1, hr, ndcg, loss, time()-t2))
+            hr, ndcg, loss,acc = np.array(hits).mean(), np.array(
+                ndcgs).mean(), hist.history['loss'][0],hist.history['acc'][0]
+            print('Iteration %d [%.1f s]: HR = %.4f, NDCG = %.4f, loss = %.4f [%.1f s], acc=%.4f'
+                  % (epoch,  t2-t1, hr, ndcg, loss, time()-t2,acc))
             if hr > best_hr:
                 best_hr, best_ndcg, best_iter = hr, ndcg, epoch
                 if args.out > 0:

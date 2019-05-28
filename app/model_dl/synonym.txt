@@ -1,4 +1,7 @@
 tệ,nhảm,dở,thất_vọng
 tốt,hay,xuất_sắc,hay_tuyệt,chấp_nhận_được,ổn
 chán,nhạt,buồn_ngủ
-không,chả,
+không,chả
+xấu,xa,bẩn,tệ
+khó_chịu,gắt,cáu_gắt,cáu,khó_tính
+quán,chủ nhà

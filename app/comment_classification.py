@@ -46,6 +46,7 @@ def load_synonym_dict(file_path):
         words = [w.strip() for w in words]
         for word in words[1:]:
             sym_dict.update({word: words[0]})
+    print('def load_synonym_dict(file_path): ===> sym_dict',sym_dict)
     return sym_dict
 
 
@@ -89,6 +90,11 @@ class KerasTextClassifier(BaseTextClassifier):
         self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=self.n_epochs,
                        validation_split=0.2, shuffle=True, callbacks=callbacks_list)
         self.model.save_weights(self.model_path)
+    
+    def train_on_batch(self,X,y):
+        self.model = self.build_model(input_dim=(X.shape[1], X.shape[2]))
+        self.model.train_on_batch(X,y)
+        self.model.save_weights(self.model_path)
 
     def predict(self, X):
         """
@@ -102,6 +108,7 @@ class KerasTextClassifier(BaseTextClassifier):
         return y
 
     def classify(self, sentences):
+        print('sebeee: ',sentences)
         """
         Classify sentences
         :param sentences: input sentences in format of list of strings
@@ -111,11 +118,21 @@ class KerasTextClassifier(BaseTextClassifier):
         # tf.reset_default_graph()
         # K.clear_session()
         X = [sent.strip() for sent in sentences]
+        X = [sent.replace(',','') for sent in sentences]
+        X = self.replace_word(X,'tệ','xấu')
         X, _ = self.tokenize_sentences(X)
         X = self.word_embed_sentences(X, max_length=self.max_length)
         y = self.predict(np.array(X))
         print('yyytt: ',y)
         return self.label_result(y)
+    
+    def replace_word(self,sentences,from_word,to_word):
+        new_sentences = []
+        for sent in sentences:
+            sent = sent.replace(str(from_word),str(to_word))
+            print('sebt: ',sent)
+            new_sentences.append(sent)
+        return new_sentences
 
     def load_model(self):
         """
@@ -178,9 +195,11 @@ class KerasTextClassifier(BaseTextClassifier):
         for sent in sentences:
             embed_sent = []
             for word in sent:
+                print('def word_embed_sentences(self, sentences, max_length=20): ==> word: ',word)
                 # lap tung tu trong sent
                 if (self.sym_dict is not None) and (word.lower() in self.sym_dict):
                     replace_word = self.sym_dict[word.lower()]
+                    print('replace_word: ___',replace_word)
                     embed_sent.append(self.word2vec[replace_word])
                 elif word.lower() in self.word2vec:
                     embed_sent.append(self.word2vec[word.lower()])
@@ -283,16 +302,22 @@ class BiDirectionalLSTMClassifier(KerasTextClassifier):
         return model
 
 
-word2vec_model = Word2Vec.load('app/model_dl/word2vec-new.model')
+word2vec_model = Word2Vec.load('app/model_dl/word2vec-new_old.model')
 tokenizer = ViTokenizer
 sym_dict = load_synonym_dict('app/model_dl/synonym.txt')
 keras_text_classifier = BiDirectionalLSTMClassifier(
-    tokenizer=tokenizer, word2vec=word2vec_model.wv, model_path='app/model_dl/sentiment_model.h5', max_length=40, n_epochs=50, sym_dict=sym_dict)
-
+    tokenizer=tokenizer, word2vec=word2vec_model.wv, model_path='app/model_dl/sentiment_model_old.h5', max_length=40, n_epochs=50, sym_dict=sym_dict)
+# train_data = ['Nhà hơi xa so với bờ biển','Nhà hơi xa so với trung tâm thành phố','Nhà hơi xa so với bờ biển nên mình ngại đi']
+# train_data, max_length = keras_text_classifier.tokenize_sentences(train_data)
+# train_data = keras_text_classifier.word_embed_sentences(train_data,40)
+# print('check traindata: ',np.array(train_data).shape)
+# keras_text_classifier.train_on_batch(np.array(train_data),np.array([[0,1],[0,1],[0,1]]))
 keras_text_classifier.load_model()
-print('dhs')
 graph = tf.get_default_graph()
 
+
+# from keras.utils.vis_utils import plot_model
+# plot_model(keras_text_classifier.model, to_file='model.png')
 
 def classify_comment(comment):
     return keras_text_classifier.classify(comment)
