@@ -9,6 +9,8 @@ services:
       MYSQL_ROOT_PASSWORD: 22051996_Anh
     ports:
       - "3308:3306"
+    networks:
+      - "myNetwork"
   web:
     links:
       - db_hr
@@ -20,4 +22,9 @@ services:
       - .:/code
     ports:
       - "8000:8000"
+    networks:
+      - "myNetwork"
+networks:
+  myNetwork:
+    external: true
       
